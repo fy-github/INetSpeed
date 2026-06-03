@@ -71,7 +71,7 @@ object Iperf3OutputParser {
     /**
      * 将带宽值转换为 bits/sec
      */
-    private fun toBitsPerSecond(value: Double, unit: Double): Double {
+    private fun toBitsPerSecond(value: Double, unit: String): Double {
         val normalizedUnit = unit.lowercase().replace("/sec", "")
         val multiplier = when (normalizedUnit) {
             "bits" -> 1.0

@@ -170,16 +170,18 @@ private fun ServerCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (server.lastLatencyMs != null) {
+                val latency = server.lastLatencyMs
+                if (latency != null) {
                     Text(
-                        text = "延迟: ${server.lastLatencyMs.toInt()}ms",
+                        text = "延迟: ${latency.toInt()}ms",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                if (server.region != null) {
+                val region = server.region
+                if (region != null) {
                     Text(
-                        text = server.region,
+                        text = region,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

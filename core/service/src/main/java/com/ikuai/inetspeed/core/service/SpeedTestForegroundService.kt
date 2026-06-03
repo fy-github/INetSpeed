@@ -8,7 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
-import com.ikuai.inetspeed.R
+import com.ikuai.inetspeed.core.service.R
 import dagger.hilt.android.AndroidEntryPoint
 
 /**

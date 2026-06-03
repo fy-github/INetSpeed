@@ -188,9 +188,10 @@ private fun MeasurementCard(
                 )
             }
 
-            if (measurement.latencyMs != null) {
+            val latency = measurement.latencyMs
+            if (latency != null) {
                 Text(
-                    text = "${measurement.latencyMs.toInt()}ms",
+                    text = "${latency.toInt()}ms",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -215,7 +216,7 @@ private fun EmptyState() {
 private fun buildChartData(measurements: List<TestMeasurement>): List<ChartBar> {
     val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
     val grouped = measurements.groupBy { dateFormat.format(Date(it.timestamp)) }
-    return grouped.entries.takeLast(7).map { (date, records) ->
+    return grouped.entries.toList().takeLast(7).map { (date, records) ->
         val avgMbps = records.map { it.throughputMbps }.average()
         ChartBar(label = date, value = avgMbps)
     }

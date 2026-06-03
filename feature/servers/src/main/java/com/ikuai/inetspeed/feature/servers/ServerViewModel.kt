@@ -61,10 +61,11 @@ class ServerViewModel @Inject constructor(
 
             // 更新所有服务器的延迟
             results.forEach { result ->
-                if (result.reachable && result.avgLatencyMs != null) {
+                val avgLatency = result.avgLatencyMs
+                if (result.reachable && avgLatency != null) {
                     val server = builtIn.firstOrNull { it.address == result.host }
                     if (server != null) {
-                        serverRepository.updateLatency(server.id, result.avgLatencyMs)
+                        serverRepository.updateLatency(server.id, avgLatency)
                     }
                 }
             }

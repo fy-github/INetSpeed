@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class ReportExporter @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val exportDir: File
+    val exportDir: File
         get() = File(context.filesDir, "reports").also { it.mkdirs() }
 
     /**
