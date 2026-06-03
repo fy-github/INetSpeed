@@ -20,3 +20,5 @@ local.properties
 *.bak
 *.swp
 *~
+/tools/test-outputs/
+/tools/iperf3-windows/
