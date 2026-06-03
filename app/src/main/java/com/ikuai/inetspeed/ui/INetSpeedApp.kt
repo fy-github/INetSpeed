@@ -81,13 +81,17 @@ fun INetSpeedApp() {
                     ToolsScreen()
                 }
                 composable(TopLevelDestination.HISTORY.route) {
-                    HistoryScreen()
+                    HistoryScreen(onNavigateToDetail = { })
                 }
                 composable(TopLevelDestination.REPORT.route) {
                     ReportScreen()
                 }
                 composable(TopLevelDestination.SETTINGS.route) {
-                    SettingsScreen()
+                    SettingsScreen(
+                        onNavigateToServers = { },
+                        onNavigateToLicenses = { },
+                        onNavigateToAbout = { },
+                    )
                 }
             }
         }
