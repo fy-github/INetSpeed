@@ -36,6 +36,7 @@ import com.ikuai.inetspeed.core.data.model.Direction
 import com.ikuai.inetspeed.core.data.model.Protocol
 import com.ikuai.inetspeed.feature.speedtest.components.GaugeCanvas
 import com.ikuai.inetspeed.feature.speedtest.components.MetricCards
+import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestConfig
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestState
 
 @Composable
@@ -256,7 +257,9 @@ private fun ExpertParamsPanel(
     }
 }
 
-private val DurationTextStyle = MaterialTheme.typography.titleSmall
+private val DurationTextStyle: androidx.compose.ui.text.TextStyle
+    @Composable
+    get() = MaterialTheme.typography.titleSmall
 
 @Composable
 private fun ProgressIndicator(percent: Int, elapsed: Int, total: Int) {

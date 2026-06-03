@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ikuai.inetspeed.core.network.ping.PingService
+import com.ikuai.inetspeed.core.network.traceroute.TracerouteService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,18 +141,20 @@ private fun PingTab(viewModel: ToolsViewModel) {
 
 @Composable
 private fun PingResultRow(result: PingService.PingResult) {
+    val reachable = result.reachable
+    val avgLatency = result.avgLatencyMs
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
     ) {
         Text(
-            text = if (result.reachable) "✓" else "✗",
-            color = if (result.reachable) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+            text = if (reachable) "✓" else "✗",
+            color = if (reachable) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(end = 8.dp),
         )
         Text(
-            text = result.avgLatencyMs?.let { "${it.toInt()}ms" } ?: "超时",
+            text = avgLatency?.let { "${it.toInt()}ms" } ?: "超时",
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -200,23 +204,26 @@ private fun TracerouteTab(viewModel: ToolsViewModel) {
 
 @Composable
 private fun TracerouteHopRow(hop: TracerouteService.TracerouteHop) {
+    val hopNumber = hop.hopNumber
+    val host = hop.host
+    val latency = hop.latencyMs
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
     ) {
         Text(
-            text = "${hop.hopNumber}",
+            text = "$hopNumber",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(end = 12.dp),
         )
         Text(
-            text = hop.host,
+            text = host,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = hop.latencyMs?.let { "${it.toInt()}ms" } ?: "*",
+            text = latency?.let { "${it.toInt()}ms" } ?: "*",
             style = MaterialTheme.typography.bodySmall,
         )
     }

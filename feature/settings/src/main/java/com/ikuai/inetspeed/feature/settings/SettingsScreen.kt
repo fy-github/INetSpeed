@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Server
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,7 +76,7 @@ fun SettingsScreen(
             // 服务器
             SettingsSection(title = "服务器") {
                 SettingsItem(
-                    icon = Icons.Default.Server,
+                    icon = Icons.Default.Dns,
                     title = "服务器管理",
                     subtitle = "管理内置、自定义和局域网服务器",
                     onClick = onNavigateToServers,

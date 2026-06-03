@@ -77,7 +77,7 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             _exportState.value = ExportState.Exporting
             try {
-                val dir = reportExporter.getExportDir()
+                val dir = reportExporter.exportDir
                 val file = File(dir, "${title}_${System.currentTimeMillis()}.png")
                 FileOutputStream(file).use { out ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

@@ -4,7 +4,7 @@ import com.ikuai.inetspeed.core.data.model.Direction
 import com.ikuai.inetspeed.core.data.model.IpVersion
 import com.ikuai.inetspeed.core.data.model.Protocol
 import com.ikuai.inetspeed.core.data.model.TestStatus
-import com.ikuai.inetspeed.core.error.ErrorCode
+import com.ikuai.inetspeed.core.data.error.ErrorCode
 
 /**
  * 测速状态机
