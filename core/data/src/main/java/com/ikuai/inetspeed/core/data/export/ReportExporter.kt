@@ -106,11 +106,6 @@ class ReportExporter @Inject constructor(
         return file
     }
 
-    /**
-     * 获取导出目录
-     */
-    fun getExportDir(): File = exportDir
-
     private fun formatDate(timestamp: Long): String {
         return SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
     }
