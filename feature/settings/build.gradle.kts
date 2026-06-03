@@ -32,6 +32,8 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":core:ads"))
+    implementation(project(":core:iperf3"))
+    implementation(project(":core:sync"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
