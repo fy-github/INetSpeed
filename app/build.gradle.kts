@@ -91,6 +91,7 @@ dependencies {
     implementation(project(":core:privacy"))
     implementation(project(":core:sync"))
     implementation(project(":core:ads"))
+    implementation(project(":core:service"))
     implementation(project(":feature:speedtest"))
     implementation(project(":feature:servers"))
     implementation(project(":feature:tools"))
