@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Speed gauge icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 C40.2,30 29,41.2 29,55 L29,55 L35,55 C35,44.5 43.5,36 54,36 C64.5,36 73,44.5 73,55 L79,55 C79,41.2 67.8,30 54,30Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,50 L54,55 L44,65 L48,69 L58,59 L54,55Z"/>
+    <path
+        android:fillColor="#00FF88"
+        android:pathData="M29,60 L79,60"
+        android:strokeWidth="3"
+        android:strokeColor="#00FF88"/>
+</vector>
