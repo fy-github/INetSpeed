@@ -5,12 +5,12 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tools
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Tools
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class TopLevelDestination(
@@ -26,8 +26,8 @@ enum class TopLevelDestination(
         route = "speedtest",
     ),
     TOOLS(
-        selectedIcon = Icons.Filled.Tools,
-        unselectedIcon = Icons.Outlined.Tools,
+        selectedIcon = Icons.Filled.Build,
+        unselectedIcon = Icons.Outlined.Build,
         label = "工具",
         route = "tools",
     ),
