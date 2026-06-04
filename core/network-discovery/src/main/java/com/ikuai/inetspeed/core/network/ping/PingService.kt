@@ -28,11 +28,24 @@ class PingService @Inject constructor() {
         try {
             val cmd = arrayOf("ping", "-c", count.toString(), "-W", "3", host)
             val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+            val rawOutput = StringBuilder()
+            val reader = Thread {
+                try {
+                    process.inputStream.bufferedReader().forEachLine { line ->
+                        rawOutput.appendLine(line)
+                    }
+                } catch (_: Exception) {}
+            }
+            reader.start()
 
-            parsePingOutput(host, output)
-        } catch (e: Exception) {
+            val completed = process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+            if (!completed) {
+                process.destroyForcibly()
+            }
+            reader.join(2000)
+
+            parsePingOutput(host, rawOutput.toString())
+        } catch (_: Exception) {
             PingResult(host, reachable = false, null, null, null, null)
         }
     }

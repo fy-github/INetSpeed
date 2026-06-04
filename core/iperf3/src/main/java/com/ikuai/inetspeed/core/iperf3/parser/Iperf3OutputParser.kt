@@ -8,13 +8,13 @@ import java.util.regex.Pattern
  */
 object Iperf3OutputParser {
 
-    // TCP interval: [  5] 0.00-1.00  sec  28.5 MBytes  239 Mbits/sec
-    private val TCP_INTERVAL_PATTERN = Pattern.compile(
-        """\[\s*(\d+)]\s+(\d+\.\d+)-(\d+\.\d+)\s+sec\s+([\d.]+)\s+(\w+)\s+([\d.]+)\s+(\w+/sec)"""
+    // TCP interval: [  5]   0.00-1.00   sec  7.12 MBytes  59.7 Mbits/sec    4   1004 KBytes
+    private val TCP_INTERVAL_PATTERN = Regex(
+        """\[\s*(\d+)]\s+(\d+\.\d+)-(\d+\.\d+)\s+sec\s+([\d.]+)\s+(\w+)\s+([\d.]+)\s+(\w+/sec)\s+(\d+)\s+[\d.]+\s+\w+"""
     )
 
-    // UDP interval: [  5] 0.00-1.00  sec  1.25 MBytes  10.5 Mbits/sec  0.234 ms  0/1000 (0%)
-    private val UDP_INTERVAL_PATTERN = Pattern.compile(
+    // UDP interval: [  5]   0.00-1.00   sec  1.25 MBytes  10.5 Mbits/sec  0.234 ms  0/1000 (0%)
+    private val UDP_INTERVAL_PATTERN = Regex(
         """\[\s*(\d+)]\s+(\d+\.\d+)-(\d+\.\d+)\s+sec\s+([\d.]+)\s+(\w+)\s+([\d.]+)\s+(\w+/sec)\s+([\d.]+)\s+ms\s+(\d+)/(\d+)\s+\(([\d.]+)%\)"""
     )
 
@@ -24,33 +24,31 @@ object Iperf3OutputParser {
      */
     fun parseIntervalLine(line: String): SpeedInterval? {
         // 先尝试 UDP 格式（更长，包含 jitter/loss）
-        val udpMatcher = UDP_INTERVAL_PATTERN.matcher(line)
-        if (udpMatcher.matches()) {
+        val udpMatch = UDP_INTERVAL_PATTERN.find(line)
+        if (udpMatch != null) {
             return SpeedInterval(
-                streamId = udpMatcher.group(1)!!.toInt(),
-                secondIndex = udpMatcher.group(2)!!.toDouble().toInt(),
+                streamId = udpMatch.groupValues[1].toInt(),
+                secondIndex = udpMatch.groupValues[2].toDouble().toInt(),
                 bitsPerSecond = toBitsPerSecond(
-                    udpMatcher.group(6)!!.toDouble(),
-                    udpMatcher.group(7)!!
+                    udpMatch.groupValues[6].toDouble(),
+                    udpMatch.groupValues[7]
                 ),
                 retransmits = null,
-                jitterMs = udpMatcher.group(8)!!.toDouble(),
-                packetLossPercent = udpMatcher.group(11)!!.toDouble(),
+                jitterMs = udpMatch.groupValues[8].toDouble(),
+                packetLossPercent = udpMatch.groupValues[11].toDouble(),
                 rawLine = line,
             )
         }
 
         // 尝试 TCP 格式
-        val tcpMatcher = TCP_INTERVAL_PATTERN.matcher(line)
-        if (tcpMatcher.matches()) {
+        val tcpMatch = TCP_INTERVAL_PATTERN.find(line)
+        if (tcpMatch != null) {
+            val bps = toBitsPerSecond(tcpMatch.groupValues[6].toDouble(), tcpMatch.groupValues[7])
             return SpeedInterval(
-                streamId = tcpMatcher.group(1)!!.toInt(),
-                secondIndex = tcpMatcher.group(2)!!.toDouble().toInt(),
-                bitsPerSecond = toBitsPerSecond(
-                    tcpMatcher.group(6)!!.toDouble(),
-                    tcpMatcher.group(7)!!
-                ),
-                retransmits = null,
+                streamId = tcpMatch.groupValues[1].toInt(),
+                secondIndex = tcpMatch.groupValues[2].toDouble().toInt(),
+                bitsPerSecond = bps,
+                retransmits = tcpMatch.groupValues[8].toIntOrNull(),
                 jitterMs = null,
                 packetLossPercent = null,
                 rawLine = line,

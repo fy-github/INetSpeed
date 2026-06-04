@@ -50,14 +50,15 @@ class ProcessRunner @Inject constructor(
         val rawLines = mutableListOf<String>()
 
         try {
-            val processBuilder = ProcessBuilder(cmd)
-                .redirectErrorStream(true)
+            val processBuilder = createProcessBuilder(cmd)
 
             val process = processBuilder.start()
             activeProcesses[request.testId] = process
 
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             var line: String?
+            val timeoutMs = (request.durationSeconds + 30) * 1000L
+            val startTime = System.currentTimeMillis()
 
             while (reader.readLine().also { line = it } != null) {
                 val currentLine = line ?: continue
@@ -72,14 +73,30 @@ class ProcessRunner @Inject constructor(
                         emit(IperfEvent.Progress(percent.coerceAtMost(100), interval.megabitsPerSecond))
                     }
                 }
+
+                if (System.currentTimeMillis() - startTime > timeoutMs) {
+                    process.destroyForcibly()
+                    activeProcesses.remove(request.testId)
+                    emit(IperfEvent.Failed(INetSpeedException(ErrorCode.TEST_TIMEOUT, mapOf("output" to rawLines.joinToString("\n").take(500)))))
+                    return@flow
+                }
             }
 
-            val exitCode = process.waitFor()
+            val completedInTime = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             activeProcesses.remove(request.testId)
 
+            if (!completedInTime) {
+                process.destroyForcibly()
+                val errorOutput = rawLines.joinToString("\n")
+                emit(IperfEvent.Failed(INetSpeedException(ErrorCode.TEST_TIMEOUT, mapOf("output" to errorOutput.take(500)))))
+                return@flow
+            }
+
+            val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val errorOutput = rawLines.joinToString("\n")
                 val errorCode = classifyError(errorOutput, exitCode)
+                android.util.Log.e("ProcessRunner", "iperf3 failed: exitCode=$exitCode, errorCode=$errorCode, output=${errorOutput.take(300)}")
                 emit(IperfEvent.Failed(INetSpeedException(errorCode, mapOf("exitCode" to exitCode.toString(), "output" to errorOutput.take(500)))))
                 return@flow
             }
@@ -126,7 +143,13 @@ class ProcessRunner @Inject constructor(
 
         } catch (e: Exception) {
             activeProcesses.remove(request.testId)
-            emit(IperfEvent.Failed(INetSpeedException(ErrorCode.UNKNOWN, cause = e)))
+            val errorCode = when {
+                e is java.io.IOException && e.message?.contains("Permission denied") == true -> ErrorCode.PERMISSION_DENIED
+                e is java.io.IOException && e.message?.contains("error=13") == true -> ErrorCode.PERMISSION_DENIED
+                else -> ErrorCode.UNKNOWN
+            }
+            android.util.Log.e("ProcessRunner", "Exception: ${e.javaClass.simpleName}: ${e.message}", e)
+            emit(IperfEvent.Failed(INetSpeedException(errorCode, cause = e)))
         }
     }.flowOn(Dispatchers.IO)
 
@@ -153,7 +176,7 @@ class ProcessRunner @Inject constructor(
 
         try {
             val cmd = listOf(binaryInstaller.getBinaryPath()) + CommandBuilder.buildVersionQuery()
-            val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
+            val process = createProcessBuilder(cmd).start()
             val output = process.inputStream.bufferedReader().readText()
             process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
 
@@ -182,7 +205,7 @@ class ProcessRunner @Inject constructor(
 
         try {
             val cmd = listOf(binaryInstaller.getBinaryPath()) + CommandBuilder.buildSctpCheck("127.0.0.1")
-            val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
+            val process = createProcessBuilder(cmd).start()
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
 
@@ -200,15 +223,23 @@ class ProcessRunner @Inject constructor(
     private fun classifyError(output: String, exitCode: Int): ErrorCode {
         val lower = output.lowercase()
         return when {
+            lower.contains("unable to create a new stream") -> ErrorCode.BINARY_UNSUPPORTED
+            lower.contains("permission denied") -> ErrorCode.PERMISSION_DENIED
             lower.contains("connection refused") || lower.contains("connect failed") -> ErrorCode.SERVER_UNREACHABLE
             lower.contains("unable to connect") || lower.contains("no route") -> ErrorCode.SERVER_UNREACHABLE
-            lower.contains("port") && lower.contains("error") -> ErrorCode.PORT_BLOCKED
             lower.contains("protocol") && lower.contains("not supported") -> ErrorCode.PROTOCOL_UNSUPPORTED
             lower.contains("sctp") && lower.contains("not supported") -> ErrorCode.PROTOCOL_UNSUPPORTED
             lower.contains("timeout") -> ErrorCode.TEST_TIMEOUT
-            lower.contains("permission") -> ErrorCode.PERMISSION_DENIED
             exitCode != 0 -> ErrorCode.UNKNOWN
             else -> ErrorCode.UNKNOWN
         }
+    }
+
+    private fun createProcessBuilder(cmd: List<String>): ProcessBuilder {
+        return ProcessBuilder(cmd)
+            .redirectErrorStream(true)
+            .apply {
+                environment()["ANDROID_NO_USE_FWMARK_CLIENT"] = "1"
+            }
     }
 }

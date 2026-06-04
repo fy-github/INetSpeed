@@ -56,3 +56,16 @@ INetSpeed 是一款 Android 网络带宽测试工具，基于 iperf3 协议。
 # 运行测试
 ./gradlew test
 ```
+
+## 工作规则
+
+1. **工具超时保护**：调用任何外部工具（adb、gradle、shell 等）时必须设置合理超时，避免无限等待。
+2. **自动修改与验证**：代码修改后必须自动完成构建、安装、测试、日志收集全流程，用户只需要最终结果。
+3. **安装前卸载**：重新安装 App 前必须先卸载旧版本（`adb uninstall`），确保干净安装。
+4. **不中断用户**：不要反复询问用户操作，尽量自主完成可自动化的步骤。
+
+## ADB 设备
+
+- 真机 serial: `2089e9bb`
+- 模拟器 serial: `emulator-5554`
+- adb 路径: `D:\AppData\SDK\platform-tools\adb.exe`
