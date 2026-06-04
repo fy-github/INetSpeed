@@ -81,7 +81,7 @@ fun HistoryScreen(
                 // 趋势图
                 TrendChart(
                     data = buildChartData(measurements),
-                    modifier = Modifier.height(160.dp),
+                    modifier = Modifier.height(180.dp),
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -159,19 +159,14 @@ private fun MeasurementCard(
         onClick = onClick,
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 方向图标
             Box(modifier = Modifier.padding(end = 10.dp)) {
                 Text(
                     text = if (measurement.direction == "reverse") "↑" else "↓",
                     fontSize = 18.sp,
-                    color = if (measurement.direction == "reverse") {
-                        MaterialTheme.colorScheme.secondary
-                    } else {
-                        MaterialTheme.colorScheme.tertiary
-                    },
+                    color = if (measurement.direction == "reverse") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
                 )
             }
 
@@ -184,6 +179,11 @@ private fun MeasurementCard(
                 Text(
                     text = "${measurement.protocol.uppercase()} · ${measurement.serverName} · ${formatTime(measurement.timestamp)}",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = if (measurement.direction == "reverse") "反向测试" else "正向测试",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

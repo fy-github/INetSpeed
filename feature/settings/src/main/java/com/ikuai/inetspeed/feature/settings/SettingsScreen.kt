@@ -32,11 +32,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ikuai.inetspeed.core.data.prefs.ThemeChoice
 import com.ikuai.inetspeed.core.sync.engine.SyncEngine
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +54,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val iperfVersion by viewModel.iperfVersion.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
+    var showExportDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -103,7 +108,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Download,
                     title = "数据导入/导出",
                     subtitle = "备份和恢复测试记录",
-                    onClick = { /* TODO */ },
+                    onClick = { showExportDialog = true },
                 )
             }
 
@@ -152,6 +157,19 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
+    }
+
+    if (showExportDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("数据导入/导出") },
+            text = { Text("此功能将在后续版本中支持。当前版本的测试数据已自动保存在本地数据库中。") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showExportDialog = false }) {
+                    Text("知道了")
+                }
+            },
+        )
     }
 }
 
@@ -209,8 +227,8 @@ private fun SettingsItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeSetting(
-    currentMode: SettingsViewModel.ThemeMode,
-    onModeChange: (SettingsViewModel.ThemeMode) -> Unit,
+    currentMode: ThemeChoice,
+    onModeChange: (ThemeChoice) -> Unit,
 ) {
     Column(modifier = Modifier.padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -226,17 +244,17 @@ private fun ThemeSetting(
         Spacer(modifier = Modifier.height(8.dp))
 
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SettingsViewModel.ThemeMode.entries.forEachIndexed { index, mode ->
+            ThemeChoice.entries.forEachIndexed { index, mode ->
                 SegmentedButton(
                     selected = currentMode == mode,
                     onClick = { onModeChange(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = SettingsViewModel.ThemeMode.entries.size),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeChoice.entries.size),
                 ) {
                     Text(
                         text = when (mode) {
-                            SettingsViewModel.ThemeMode.SYSTEM -> "跟随系统"
-                            SettingsViewModel.ThemeMode.LIGHT -> "浅色"
-                            SettingsViewModel.ThemeMode.DARK -> "深色"
+                            ThemeChoice.SYSTEM -> "跟随系统"
+                            ThemeChoice.LIGHT -> "浅色"
+                            ThemeChoice.DARK -> "深色"
                         },
                     )
                 }

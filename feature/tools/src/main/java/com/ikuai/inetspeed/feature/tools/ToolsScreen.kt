@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.network.ping.PingService
+import com.ikuai.inetspeed.core.network.ping.TcpPingService
 import com.ikuai.inetspeed.core.network.traceroute.TracerouteService
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +46,7 @@ fun ToolsScreen(
     viewModel: ToolsViewModel = hiltViewModel(),
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ping", "Traceroute", "网络信息")
+    val tabs = listOf("Ping", "Tcping", "Traceroute", "网络信息")
 
     Scaffold(
         topBar = {
@@ -64,8 +66,9 @@ fun ToolsScreen(
 
             when (selectedTab) {
                 0 -> PingTab(viewModel)
-                1 -> TracerouteTab(viewModel)
-                2 -> NetworkInfoTab(viewModel)
+                1 -> TcpPingTab(viewModel)
+                2 -> TracerouteTab(viewModel)
+                3 -> NetworkInfoTab(viewModel)
             }
         }
     }
@@ -118,7 +121,7 @@ private fun PingTab(viewModel: ToolsViewModel) {
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     MetricItem("发送", "${results.size}")
@@ -131,7 +134,7 @@ private fun PingTab(viewModel: ToolsViewModel) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        LazyColumn {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(results.reversed()) { result ->
                 PingResultRow(result)
             }
@@ -147,6 +150,7 @@ private fun PingResultRow(result: PingService.PingResult) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = if (reachable) "✓" else "✗",
@@ -156,6 +160,121 @@ private fun PingResultRow(result: PingService.PingResult) {
         Text(
             text = avgLatency?.let { "${it.toInt()}ms" } ?: "超时",
             style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.width(56.dp),
+        )
+        Text(
+            text = result.host,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun TcpPingTab(viewModel: ToolsViewModel) {
+    val results by viewModel.tcpPingResults.collectAsState()
+    val isTcpPinging by viewModel.isTcpPinging.collectAsState()
+    var target by remember { mutableStateOf("") }
+    var port by remember { mutableStateOf("5201") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+    ) {
+        OutlinedTextField(
+            value = target,
+            onValueChange = { target = it },
+            label = { Text("目标地址") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = port,
+            onValueChange = { port = it },
+            label = { Text("端口") },
+            modifier = Modifier.width(120.dp),
+            singleLine = true,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { viewModel.startTcpPing(target, port.toIntOrNull() ?: 5201) },
+                enabled = !isTcpPinging && target.isNotBlank(),
+            ) { Text("开始 Tcping") }
+
+            if (isTcpPinging) {
+                OutlinedButton(onClick = { viewModel.stopTcpPing() }) {
+                    Text("停止")
+                }
+                CircularProgressIndicator(modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (results.isNotEmpty()) {
+            val reachable = results.filter { it.reachable }
+            val avg = reachable.mapNotNull { it.latencyMs }.average().takeIf { !it.isNaN() }
+            val loss = ((results.size - reachable.size) * 100.0) / results.size
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    MetricItem("发送", "${results.size}")
+                    MetricItem("连通", "${reachable.size}")
+                    MetricItem("失败", "${results.size - reachable.size}")
+                    MetricItem("延迟", avg?.let { "${it.toInt()}ms" } ?: "--")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(results.reversed()) { result ->
+                TcpPingResultRow(result)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TcpPingResultRow(result: TcpPingService.TcpPingResult) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (result.reachable) "✓" else "✗",
+            color = if (result.reachable) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(end = 8.dp),
+        )
+        Text(
+            text = result.latencyMs?.let { "${it.toInt()}ms" } ?: "超时",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.width(56.dp),
+        )
+        Text(
+            text = "${result.host}:${result.port}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
     }
 }

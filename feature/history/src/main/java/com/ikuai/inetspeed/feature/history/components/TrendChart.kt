@@ -10,6 +10,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,7 +26,9 @@ fun TrendChart(
     maxValue: Double = data.maxOfOrNull { it.value }?.coerceAtLeast(1.0) ?: 1.0,
 ) {
     val barColor = MaterialTheme.colorScheme.primary
-    val textColor = android.graphics.Color.GRAY
+    val upColor = MaterialTheme.colorScheme.secondary
+    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val axisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
 
     Canvas(
         modifier = modifier
@@ -36,6 +40,12 @@ fun TrendChart(
 
         val barWidth = (size.width - (barCount + 1) * 8.dp.toPx()) / barCount
         val chartHeight = size.height - 30.dp.toPx()
+        drawLine(
+            color = axisColor,
+            start = Offset(0f, chartHeight),
+            end = Offset(size.width, chartHeight),
+            strokeWidth = 1.dp.toPx(),
+        )
 
         data.forEachIndexed { index, bar ->
             val barHeight = ((bar.value / maxValue) * chartHeight).toFloat()
@@ -47,7 +57,15 @@ fun TrendChart(
                 color = bar.color ?: barColor,
                 topLeft = Offset(x, y),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+            )
+
+            drawRoundRect(
+                color = (bar.color ?: barColor).copy(alpha = 0.22f),
+                topLeft = Offset(x, y),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+                style = Stroke(width = 1.dp.toPx()),
             )
 
             // 标签
@@ -56,7 +74,7 @@ fun TrendChart(
                 x + barWidth / 2,
                 size.height - 2.dp.toPx(),
                 android.graphics.Paint().apply {
-                    color = textColor
+                    color = textColor.toArgb()
                     textSize = 9.sp.toPx()
                     textAlign = android.graphics.Paint.Align.CENTER
                 },
@@ -69,7 +87,7 @@ fun TrendChart(
                     x + barWidth / 2,
                     y - 4.dp.toPx(),
                     android.graphics.Paint().apply {
-                        color = android.graphics.Color.DKGRAY
+                        color = if (bar.value >= maxValue * 0.8) upColor.toArgb() else textColor.toArgb()
                         textSize = 9.sp.toPx()
                         textAlign = android.graphics.Paint.Align.CENTER
                     },

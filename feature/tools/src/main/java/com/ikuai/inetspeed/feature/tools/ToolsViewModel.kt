@@ -10,6 +10,7 @@ import com.ikuai.inetspeed.core.data.model.ToolType
 import com.ikuai.inetspeed.core.network.info.NetworkInfoService
 import com.ikuai.inetspeed.core.network.traceroute.TracerouteService
 import com.ikuai.inetspeed.core.network.ping.PingService
+import com.ikuai.inetspeed.core.network.ping.TcpPingService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ToolsViewModel @Inject constructor(
     private val pingService: PingService,
+    private val tcpPingService: TcpPingService,
     private val tracerouteService: TracerouteService,
     private val networkInfoService: NetworkInfoService,
     private val toolRecordDao: ToolRecordDao,
@@ -33,6 +35,13 @@ class ToolsViewModel @Inject constructor(
     private val _isPinging = MutableStateFlow(false)
     val isPinging: StateFlow<Boolean> = _isPinging.asStateFlow()
     private var pingJob: Job? = null
+
+    // TcpPing state
+    private val _tcpPingResults = MutableStateFlow<List<TcpPingService.TcpPingResult>>(emptyList())
+    val tcpPingResults: StateFlow<List<TcpPingService.TcpPingResult>> = _tcpPingResults.asStateFlow()
+    private val _isTcpPinging = MutableStateFlow(false)
+    val isTcpPinging: StateFlow<Boolean> = _isTcpPinging.asStateFlow()
+    private var tcpPingJob: Job? = null
 
     // Traceroute state
     private val _tracerouteHops = MutableStateFlow<List<TracerouteService.TracerouteHop>>(emptyList())
@@ -66,6 +75,27 @@ class ToolsViewModel @Inject constructor(
     fun stopPing() {
         pingJob?.cancel()
         _isPinging.value = false
+    }
+
+    fun startTcpPing(target: String, port: Int = 5201, count: Int = 10) {
+        if (_isTcpPinging.value) return
+        _isTcpPinging.value = true
+        _tcpPingResults.value = emptyList()
+
+        tcpPingJob = viewModelScope.launch {
+            val results = mutableListOf<TcpPingService.TcpPingResult>()
+            for (i in 1..count) {
+                val result = tcpPingService.ping(target, port)
+                results.add(result)
+                _tcpPingResults.value = results.toList()
+            }
+            _isTcpPinging.value = false
+        }
+    }
+
+    fun stopTcpPing() {
+        tcpPingJob?.cancel()
+        _isTcpPinging.value = false
     }
 
     fun startTraceroute(target: String) {

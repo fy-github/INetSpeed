@@ -33,6 +33,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:iperf3"))
     implementation(project(":core:privacy"))
+    implementation(project(":core:network-discovery"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -46,4 +47,6 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.coroutines.core)
+
+    testImplementation(libs.junit)
 }

@@ -28,7 +28,10 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = LightOnPrimary,
     secondary = LightAccent,
     secondaryContainer = LightAccentDim,
+    tertiary = LightAccentDim,
+    tertiaryContainer = LightAccent.copy(alpha = 0.18f),
     error = LightError,
+    errorContainer = LightError.copy(alpha = 0.12f),
     outline = LightBorder,
 )
 
@@ -44,16 +47,26 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = DarkOnPrimary,
     secondary = DarkAccent,
     secondaryContainer = DarkAccentDim,
+    tertiary = DarkAccentDim,
+    tertiaryContainer = DarkAccent.copy(alpha = 0.18f),
     error = DarkError,
+    errorContainer = DarkError.copy(alpha = 0.14f),
     outline = DarkBorder,
 )
 
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 @Composable
 fun INetSpeedTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current

@@ -1,8 +1,8 @@
 package com.ikuai.inetspeed.feature.speedtest
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,32 +10,45 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ikuai.inetspeed.core.data.error.ErrorCode
 import com.ikuai.inetspeed.core.data.model.Direction
 import com.ikuai.inetspeed.core.data.model.Protocol
 import com.ikuai.inetspeed.feature.speedtest.components.GaugeCanvas
 import com.ikuai.inetspeed.feature.speedtest.components.MetricCards
+import com.ikuai.inetspeed.feature.speedtest.components.formatSpeed
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestConfig
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestState
 
@@ -46,45 +59,54 @@ fun SpeedTestScreen(
     val state by viewModel.state.collectAsState()
     val config by viewModel.config.collectAsState()
     val isExpertMode by viewModel.isExpertMode.collectAsState()
+    val serverAddress by viewModel.serverAddress.collectAsState()
+    val serverPort by viewModel.serverPort.collectAsState()
+    val recentServers by viewModel.recentServers.collectAsState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        // 服务器选择（简化版）
-        ServerSelector(
-            serverName = "hk-iperf.ikuai.com:5201",
-            isRecommended = true,
-            onClick = { /* TODO: 跳转服务器选择 */ },
+        BrandHeader(isExpertMode = isExpertMode)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        ServerAddressInput(
+            address = serverAddress,
+            port = serverPort,
+            recentServers = recentServers,
+            onAddressChange = { viewModel.updateServerAddress(it) },
+            onPortChange = { v ->
+                val p = try { v.toInt() } catch (_: Exception) { 5201 }
+                viewModel.updateServerPort(p)
+            },
+            onServerSelect = { viewModel.selectServer(it) },
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 仪表盘
         GaugeCanvas(
             speedMbps = when (val s = state) {
                 is SpeedTestState.Running -> s.currentMbps
                 is SpeedTestState.Completed -> s.throughputMbps
                 else -> 0.0
             },
-            modifier = Modifier.height(160.dp),
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // 协议/方向显示
         Text(
             text = "${config.direction.toDisplayName()} · ${config.protocol.toDisplayName()} · ${config.ipVersion.toDisplayName()}",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 指标卡片
         MetricCards(
             latencyMs = when (val s = state) {
                 is SpeedTestState.Running -> s.latencyMs
@@ -105,7 +127,6 @@ fun SpeedTestScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 协议/方向切换（简单模式隐藏，或测试未运行时显示）
         AnimatedVisibility(visible = isExpertMode || state is SpeedTestState.Idle) {
             ProtocolDirectionChips(
                 protocol = config.protocol,
@@ -117,11 +138,7 @@ fun SpeedTestScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 专家模式切换
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             FilterChip(
                 selected = isExpertMode,
                 onClick = { viewModel.toggleMode() },
@@ -129,46 +146,50 @@ fun SpeedTestScreen(
             )
         }
 
-        // 专家模式参数面板
         AnimatedVisibility(visible = isExpertMode) {
-            ExpertParamsPanel(
-                config = config,
-                onConfigChange = { viewModel.updateConfig(it) },
-            )
+            ExpertParamsPanel(config = config, onConfigChange = { viewModel.updateConfig(it) })
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 状态相关 UI
         when (val s = state) {
             is SpeedTestState.Idle -> {
-                StartTestButton(onClick = { viewModel.startTest("hk-iperf.ikuai.com", 5201, "香港节点") })
+                StartTestButton(onClick = { viewModel.startTest() })
             }
+
             is SpeedTestState.Preparing -> {
-                CircularProgressIndicator()
-                Text("准备中...", modifier = Modifier.padding(top = 8.dp))
+                StatusBlock("准备中...")
             }
+
             is SpeedTestState.Running -> {
                 ProgressIndicator(s.progressPercent, s.elapsedSeconds, config.durationSeconds)
                 Spacer(modifier = Modifier.height(8.dp))
                 CancelButton(onClick = { viewModel.cancelTest() })
             }
+
             is SpeedTestState.Cancelling -> {
-                CircularProgressIndicator()
-                Text("取消中...", modifier = Modifier.padding(top = 8.dp))
+                StatusBlock("取消中...")
             }
+
             is SpeedTestState.Completed -> {
                 CompletedInfo(s)
                 Spacer(modifier = Modifier.height(8.dp))
                 StartTestButton(onClick = { viewModel.resetToIdle() }, label = "重新测试")
             }
+
             is SpeedTestState.Failed -> {
                 ErrorInfo(s.errorCode, s.message)
                 Spacer(modifier = Modifier.height(8.dp))
                 StartTestButton(onClick = { viewModel.resetToIdle() }, label = "重试")
             }
+
             is SpeedTestState.Cancelled -> {
-                Text("测试已取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "测试已取消",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 StartTestButton(onClick = { viewModel.resetToIdle() })
             }
@@ -177,33 +198,105 @@ fun SpeedTestScreen(
 }
 
 @Composable
-private fun ServerSelector(
-    serverName: String,
-    isRecommended: Boolean,
-    onClick: () -> Unit,
+private fun BrandHeader(isExpertMode: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text("INetSpeed", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = if (isExpertMode) "网络测速 · 专家模式" else "网络测速 · 简单模式",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+            Text(
+                text = "在线",
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerAddressInput(
+    address: String,
+    port: Int,
+    recentServers: List<com.ikuai.inetspeed.core.data.model.Server>,
+    onAddressChange: (String) -> Unit,
+    onPortChange: (Int) -> Unit,
+    onServerSelect: (com.ikuai.inetspeed.core.data.model.Server) -> Unit,
 ) {
+    var showDropdown by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(end = 8.dp),
-            ) {
-                Text("●", color = MaterialTheme.colorScheme.tertiary)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("服务器地址", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = onAddressChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("输入服务器地址") },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "选择服务器",
+                            modifier = Modifier.clickable { showDropdown = !showDropdown },
+                        )
+                    },
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = port.toString(),
+                    onValueChange = { onPortChange(try { it.toInt() } catch (_: Exception) { 5201 }) },
+                    modifier = Modifier.width(80.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("端口") },
+                )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(serverName, style = MaterialTheme.typography.bodyMedium)
-                if (isRecommended) {
-                    Text("推荐", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+
+            DropdownMenu(
+                expanded = showDropdown,
+                onDismissRequest = { showDropdown = false },
+            ) {
+                if (recentServers.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("暂无历史记录", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        onClick = { showDropdown = false },
+                    )
+                } else {
+                    recentServers.take(10).forEach { server ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(server.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        "${server.address}:${server.port}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onServerSelect(server)
+                                showDropdown = false
+                            },
+                        )
+                    }
                 }
             }
-            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -215,10 +308,7 @@ private fun ProtocolDirectionChips(
     onProtocolChange: (Protocol) -> Unit,
     onDirectionChange: (Direction) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Protocol.entries.forEach { p ->
             FilterChip(
                 selected = protocol == p,
@@ -246,24 +336,69 @@ private fun ExpertParamsPanel(
             .fillMaxWidth()
             .padding(vertical = 8.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("专家参数", style = DurationTextStyle, modifier = Modifier.padding(bottom = 8.dp))
-            Text("测试时长: ${config.durationSeconds}s", style = MaterialTheme.typography.bodySmall)
-            Text("并发线程: ${config.parallelStreams}", style = MaterialTheme.typography.bodySmall)
-            Text("UDP 带宽: ${config.udpBandwidth ?: "不限"}", style = MaterialTheme.typography.bodySmall)
-            Text("窗口大小: ${config.windowSize ?: "默认"}", style = MaterialTheme.typography.bodySmall)
-            Text("缓冲区: ${config.bufferLength ?: "默认"}", style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("专家参数", style = MaterialTheme.typography.titleSmall)
+
+            OutlinedTextField(
+                value = config.durationSeconds.toString(),
+                onValueChange = { v ->
+                    val n = try { v.toInt() } catch (_: Exception) { return@OutlinedTextField }
+                    if (n in 1..3600) onConfigChange(config.copy(durationSeconds = n))
+                },
+                label = { Text("测试时长 (秒)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = config.parallelStreams.toString(),
+                onValueChange = { v ->
+                    val n = try { v.toInt() } catch (_: Exception) { return@OutlinedTextField }
+                    if (n in 1..32) onConfigChange(config.copy(parallelStreams = n))
+                },
+                label = { Text("并发线程数") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = config.udpBandwidth ?: "",
+                onValueChange = { onConfigChange(config.copy(udpBandwidth = it.ifBlank { null })) },
+                label = { Text("UDP 带宽 (留空为不限)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("如 100M") },
+            )
+
+            OutlinedTextField(
+                value = config.windowSize ?: "",
+                onValueChange = { onConfigChange(config.copy(windowSize = it.ifBlank { null })) },
+                label = { Text("窗口大小 (留空为默认)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("如 256K") },
+            )
+
+            OutlinedTextField(
+                value = config.bufferLength ?: "",
+                onValueChange = { onConfigChange(config.copy(bufferLength = it.ifBlank { null })) },
+                label = { Text("缓冲区长度 (留空为默认)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("如 128K") },
+            )
         }
     }
 }
 
-private val DurationTextStyle: androidx.compose.ui.text.TextStyle
-    @Composable
-    get() = MaterialTheme.typography.titleSmall
-
 @Composable
 private fun ProgressIndicator(percent: Int, elapsed: Int, total: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         CircularProgressIndicator(progress = { percent / 100f })
         Text(
             text = "${elapsed}s / ${total}s",
@@ -274,12 +409,21 @@ private fun ProgressIndicator(percent: Int, elapsed: Int, total: Int) {
 }
 
 @Composable
+private fun StatusBlock(text: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        CircularProgressIndicator()
+        Text(text, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
 private fun StartTestButton(onClick: () -> Unit, label: String = "开始测试") {
     Button(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
     ) {
+        Icon(Icons.Default.PlayArrow, contentDescription = null)
         Text(label, modifier = Modifier.padding(vertical = 8.dp))
     }
 }
@@ -303,7 +447,7 @@ private fun CompletedInfo(state: SpeedTestState.Completed) {
         ) {
             Text("测试完成", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = String.format("%.1f Mbps", state.throughputMbps),
+                text = "${formatSpeed(state.throughputMbps)} Mbps",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -312,19 +456,26 @@ private fun CompletedInfo(state: SpeedTestState.Completed) {
 }
 
 @Composable
-private fun ErrorInfo(errorCode: com.ikuai.inetspeed.core.data.error.ErrorCode, message: String) {
+private fun ErrorInfo(errorCode: ErrorCode, message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(errorCode.userMessage, style = MaterialTheme.typography.bodyMedium)
-                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                if (message.isNotBlank() && message != errorCode.userMessage) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
         }
     }
