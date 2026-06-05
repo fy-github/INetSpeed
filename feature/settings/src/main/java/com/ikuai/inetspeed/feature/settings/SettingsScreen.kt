@@ -1,34 +1,27 @@
 package com.ikuai.inetspeed.feature.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,12 +31,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.data.prefs.ThemeChoice
+import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
+import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
+import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
+import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
+import com.ikuai.inetspeed.core.designsystem.components.CockpitSegmentedControl
 import com.ikuai.inetspeed.core.sync.engine.SyncEngine
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateToServers: () -> Unit,
@@ -56,30 +55,39 @@ fun SettingsScreen(
     val syncState by viewModel.syncState.collectAsState()
     var showExportDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("设置") })
-        },
-    ) { padding ->
+    CockpitScreen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // 外观
-            SettingsSection(title = "外观") {
-                ThemeSetting(
-                    currentMode = themeMode,
-                    onModeChange = { viewModel.setThemeMode(it) },
+            CockpitHeader(
+                title = "设置",
+                subtitle = "Configuration Matrix · 主题 / 同步 / iperf3",
+                status = themeMode.label(),
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("主题", themeMode.label(), Modifier.weight(1f))
+                CockpitMetricTile("同步", syncState.label(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("iperf3", iperfVersion?.version ?: "--", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+            }
+
+            CockpitPanel(title = "外观", overline = "Theme") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Default.ColorLens, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("主题模式", style = MaterialTheme.typography.titleSmall)
+                }
+                CockpitSegmentedControl(
+                    options = ThemeChoice.entries.map { it.label() },
+                    selectedIndex = ThemeChoice.entries.indexOf(themeMode),
+                    onSelected = { viewModel.setThemeMode(ThemeChoice.entries[it]) },
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 服务器
-            SettingsSection(title = "服务器") {
+            SettingsSection("网络", "Servers") {
                 SettingsItem(
                     icon = Icons.Default.Dns,
                     title = "服务器管理",
@@ -88,20 +96,11 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 数据
-            SettingsSection(title = "数据") {
+            SettingsSection("数据", "Sync & Backup") {
                 SettingsItem(
                     icon = Icons.Default.Sync,
                     title = "云端同步",
-                    subtitle = when (syncState) {
-                        is SyncEngine.SyncState.NotLoggedIn -> "未登录"
-                        is SyncEngine.SyncState.Syncing -> "同步中..."
-                        is SyncEngine.SyncState.Success -> "已同步"
-                        is SyncEngine.SyncState.Error -> "同步失败"
-                        else -> "点击同步"
-                    },
+                    subtitle = syncState.detailLabel(),
                     onClick = { viewModel.triggerSync() },
                 )
                 SettingsItem(
@@ -112,10 +111,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // iperf3
-            SettingsSection(title = "iperf3") {
+            SettingsSection("iperf3", "Runtime") {
                 SettingsItem(
                     icon = Icons.Default.Info,
                     title = "版本信息",
@@ -126,14 +122,11 @@ fun SettingsScreen(
                     icon = Icons.Default.Download,
                     title = "检查更新",
                     subtitle = "当前渠道: Google Play",
-                    onClick = { /* TODO: 按渠道拆分 */ },
+                    onClick = { },
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 关于
-            SettingsSection(title = "关于") {
+            SettingsSection("关于", "Meta") {
                 SettingsItem(
                     icon = Icons.Default.Security,
                     title = "开源许可",
@@ -148,24 +141,21 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = viewModel.getDeviceInfo(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
             )
         }
     }
 
     if (showExportDialog) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { showExportDialog = false },
             title = { Text("数据导入/导出") },
             text = { Text("此功能将在后续版本中支持。当前版本的测试数据已自动保存在本地数据库中。") },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showExportDialog = false }) {
+                TextButton(onClick = { showExportDialog = false }) {
                     Text("知道了")
                 }
             },
@@ -176,16 +166,11 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSection(
     title: String,
+    overline: String,
     content: @Composable () -> Unit,
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(4.dp)) {
+    CockpitPanel(title = title, overline = overline) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             content()
         }
     }
@@ -202,63 +187,48 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 14.dp),
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(end = 12.dp),
-        )
+        CockpitDot(MaterialTheme.colorScheme.primary)
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemeSetting(
-    currentMode: ThemeChoice,
-    onModeChange: (ThemeChoice) -> Unit,
-) {
-    Column(modifier = Modifier.padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.ColorLens,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 12.dp),
-            )
-            Text("主题", style = MaterialTheme.typography.bodyMedium)
-        }
+private fun ThemeChoice.label(): String = when (this) {
+    ThemeChoice.SYSTEM -> "跟随系统"
+    ThemeChoice.LIGHT -> "浅色"
+    ThemeChoice.DARK -> "深色"
+}
 
-        Spacer(modifier = Modifier.height(8.dp))
+private fun SyncEngine.SyncState.label(): String = when (this) {
+    SyncEngine.SyncState.Idle -> "待命"
+    SyncEngine.SyncState.NotLoggedIn -> "未登录"
+    SyncEngine.SyncState.Syncing -> "同步中"
+    is SyncEngine.SyncState.Success -> "完成"
+    is SyncEngine.SyncState.Error -> "失败"
+}
 
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            ThemeChoice.entries.forEachIndexed { index, mode ->
-                SegmentedButton(
-                    selected = currentMode == mode,
-                    onClick = { onModeChange(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeChoice.entries.size),
-                ) {
-                    Text(
-                        text = when (mode) {
-                            ThemeChoice.SYSTEM -> "跟随系统"
-                            ThemeChoice.LIGHT -> "浅色"
-                            ThemeChoice.DARK -> "深色"
-                        },
-                    )
-                }
-            }
-        }
-    }
+private fun SyncEngine.SyncState.detailLabel(): String = when (this) {
+    SyncEngine.SyncState.Idle -> "点击同步"
+    SyncEngine.SyncState.NotLoggedIn -> "未登录"
+    SyncEngine.SyncState.Syncing -> "同步中..."
+    is SyncEngine.SyncState.Success -> "已同步"
+    is SyncEngine.SyncState.Error -> "同步失败: $message"
 }

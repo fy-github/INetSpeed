@@ -157,6 +157,10 @@ class NativeIperf3Runner @Inject constructor() : Iperf3Runner {
         }
     }.flowOn(Dispatchers.IO)
 
+    override fun runCli(testId: String, command: String): Flow<String> = flow {
+        emit("ERROR: CLI mode requires the process iperf3 runner")
+    }
+
     override suspend fun cancel(testId: String) {
         withContext(Dispatchers.IO) {
             activeSockets.remove(testId)?.close()

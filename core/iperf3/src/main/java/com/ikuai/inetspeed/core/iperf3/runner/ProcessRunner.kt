@@ -153,6 +153,54 @@ class ProcessRunner @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
+    override fun runCli(testId: String, command: String): Flow<String> = flow {
+        val validation = validateBinary()
+        if (!validation.isValid) {
+            emit("ERROR: ${validation.error ?: "Binary not available"}")
+            return@flow
+        }
+
+        val args = try {
+            CommandBuilder.parseCliInput(command)
+        } catch (e: INetSpeedException) {
+            emit("ERROR: ${e.message ?: e.errorCode.code}")
+            return@flow
+        }
+
+        val cmd = listOf(binaryInstaller.getBinaryPath()) + args
+        try {
+            emit("$ ${listOf("iperf3").plus(args).joinToString(" ")}")
+            val process = createProcessBuilder(cmd).start()
+            activeProcesses[testId] = process
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            var line: String?
+            val timeoutMs = (extractDurationSeconds(args) + 30) * 1000L
+            val startTime = System.currentTimeMillis()
+
+            while (reader.readLine().also { line = it } != null) {
+                emit(line ?: "")
+                if (System.currentTimeMillis() - startTime > timeoutMs) {
+                    process.destroyForcibly()
+                    activeProcesses.remove(testId)
+                    emit("ERROR: command timed out")
+                    return@flow
+                }
+            }
+
+            val completed = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            activeProcesses.remove(testId)
+            if (!completed) {
+                process.destroyForcibly()
+                emit("ERROR: command timed out")
+                return@flow
+            }
+            emit("[exit ${process.exitValue()}]")
+        } catch (e: Exception) {
+            activeProcesses.remove(testId)
+            emit("ERROR: ${e.message ?: e.javaClass.simpleName}")
+        }
+    }.flowOn(Dispatchers.IO)
+
     override suspend fun cancel(testId: String) {
         withContext(Dispatchers.IO) {
             val process = activeProcesses.remove(testId) ?: return@withContext
@@ -241,5 +289,10 @@ class ProcessRunner @Inject constructor(
             .apply {
                 environment()["ANDROID_NO_USE_FWMARK_CLIENT"] = "1"
             }
+    }
+
+    private fun extractDurationSeconds(args: List<String>): Int {
+        val optionIndex = args.indexOfFirst { it == "-t" || it == "--time" }
+        return args.getOrNull(optionIndex + 1)?.toIntOrNull()?.coerceIn(1, 3600) ?: 10
     }
 }

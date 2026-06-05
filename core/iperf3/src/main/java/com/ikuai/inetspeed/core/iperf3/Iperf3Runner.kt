@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface Iperf3Runner {
     fun run(request: IperfRequest): Flow<IperfEvent>
+    fun runCli(testId: String, command: String): Flow<String>
     suspend fun cancel(testId: String)
     suspend fun version(): IperfVersion
     suspend fun validateBinary(): BinaryValidationResult

@@ -1,48 +1,42 @@
 package com.ikuai.inetspeed.feature.history
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.data.model.TestMeasurement
-import com.ikuai.inetspeed.feature.history.components.ChartBar
-import com.ikuai.inetspeed.feature.history.components.TrendChart
+import com.ikuai.inetspeed.core.designsystem.components.CockpitCurve
+import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
+import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
+import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
+import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
+import com.ikuai.inetspeed.core.designsystem.components.CockpitSegmentedControl
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     onNavigateToDetail: (Long) -> Unit,
@@ -50,96 +44,77 @@ fun HistoryScreen(
 ) {
     val measurements by viewModel.filteredMeasurements.collectAsState()
     val timeRange by viewModel.timeRange.collectAsState()
+    val filterProtocol by viewModel.filterProtocol.collectAsState()
+    val avg = measurements.map { it.throughputMbps }.average().takeIf { !it.isNaN() } ?: 0.0
+    val max = measurements.maxOfOrNull { it.throughputMbps } ?: 0.0
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("历史记录") })
-        },
-    ) { padding ->
+    CockpitScreen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // 时间范围选择
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HistoryViewModel.TimeRange.entries.forEach { range ->
-                    FilterChip(
-                        selected = timeRange == range,
-                        onClick = { viewModel.setTimeRange(range) },
-                        label = { Text(range.label) },
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (measurements.isEmpty()) {
-                EmptyState()
-            } else {
-                // 趋势图
-                TrendChart(
-                    data = buildChartData(measurements),
-                    modifier = Modifier.height(180.dp),
+            CockpitHeader(
+                title = "历史",
+                subtitle = "Telemetry Archive · 速度趋势与记录回放",
+                status = "${measurements.size} 条",
+            )
+            CockpitPanel(title = "筛选", overline = "Range") {
+                CockpitSegmentedControl(
+                    options = HistoryViewModel.TimeRange.entries.map { it.label },
+                    selectedIndex = HistoryViewModel.TimeRange.entries.indexOf(timeRange),
+                    onSelected = { viewModel.setTimeRange(HistoryViewModel.TimeRange.entries[it]) },
                 )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 协议筛选
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = viewModel.filterProtocol.collectAsState().value == null,
-                        onClick = { viewModel.setFilterProtocol(null) },
-                        label = { Text("全部") },
-                    )
-                    FilterChip(
-                        selected = viewModel.filterProtocol.collectAsState().value == "tcp",
-                        onClick = { viewModel.setFilterProtocol("tcp") },
-                        label = { Text("TCP") },
-                    )
-                    FilterChip(
-                        selected = viewModel.filterProtocol.collectAsState().value == "udp",
-                        onClick = { viewModel.setFilterProtocol("udp") },
-                        label = { Text("UDP") },
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "最近测试",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(measurements, key = { it.id }) { measurement ->
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.deleteMeasurement(measurement)
-                                    true
-                                } else false
+                CockpitSegmentedControl(
+                    options = listOf("全部", "TCP", "UDP"),
+                    selectedIndex = when (filterProtocol) {
+                        "tcp" -> 1
+                        "udp" -> 2
+                        else -> 0
+                    },
+                    onSelected = {
+                        viewModel.setFilterProtocol(
+                            when (it) {
+                                1 -> "tcp"
+                                2 -> "udp"
+                                else -> null
                             },
                         )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 16.dp),
-                                    contentAlignment = Alignment.CenterEnd,
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
-                                }
-                            },
-                            enableDismissFromStartToEnd = false,
-                        ) {
-                            MeasurementCard(
+                    },
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("记录", measurements.size.toString(), Modifier.weight(1f))
+                CockpitMetricTile("均值", "${formatNumber(avg)} Mbps", Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("峰值", "${formatNumber(max)} Mbps", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+            }
+
+            CockpitCurve(
+                title = "吞吐量趋势",
+                valueLabel = if (measurements.isEmpty()) "等待记录" else "最近 ${measurements.take(24).size} 次测试",
+                samples = chartSamples(measurements),
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            CockpitPanel(
+                modifier = Modifier.weight(1f),
+                title = "最近测试",
+                overline = "Records",
+            ) {
+                if (measurements.isEmpty()) {
+                    EmptyState()
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(measurements, key = { it.id }) { measurement ->
+                            MeasurementRow(
                                 measurement = measurement,
                                 onClick = { onNavigateToDetail(measurement.id) },
+                                onDelete = { viewModel.deleteMeasurement(measurement) },
                             )
                         }
                     }
@@ -150,76 +125,60 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun MeasurementCard(
+private fun MeasurementRow(
     measurement: TestMeasurement,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(modifier = Modifier.padding(end = 10.dp)) {
-                Text(
-                    text = if (measurement.direction == "reverse") "↑" else "↓",
-                    fontSize = 18.sp,
-                    color = if (measurement.direction == "reverse") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = String.format("%.1f Mbps", measurement.throughputMbps),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                )
-                Text(
-                    text = "${measurement.protocol.uppercase()} · ${measurement.serverName} · ${formatTime(measurement.timestamp)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = if (measurement.direction == "reverse") "反向测试" else "正向测试",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            val latency = measurement.latencyMs
-            if (latency != null) {
-                Text(
-                    text = "${latency.toInt()}ms",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+        CockpitDot(if (measurement.protocol == "udp") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${formatNumber(measurement.throughputMbps)} Mbps",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+            )
+            Text(
+                text = "${measurement.protocol.uppercase()} · ${measurement.serverName.ifBlank { measurement.serverAddress }} · ${formatTime(measurement.timestamp)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = measurement.latencyMs?.let { "${it.toInt()}ms" } ?: measurement.direction.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(54.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
         }
     }
 }
 
 @Composable
 private fun EmptyState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("暂无测试记录", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("完成测速后记录会自动保存", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("暂无测试记录", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("完成测速后记录会自动保存。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-private fun buildChartData(measurements: List<TestMeasurement>): List<ChartBar> {
-    val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
-    val grouped = measurements.groupBy { dateFormat.format(Date(it.timestamp)) }
-    return grouped.entries.toList().takeLast(7).map { (date, records) ->
-        val avgMbps = records.map { it.throughputMbps }.average()
-        ChartBar(label = date, value = avgMbps)
-    }
+private fun chartSamples(measurements: List<TestMeasurement>): List<Float> {
+    if (measurements.isEmpty()) return List(18) { 0.25f + (it % 4) * 0.04f }
+    return measurements.take(24).map { it.throughputMbps.toFloat().coerceAtLeast(0.1f) }
 }
 
 private fun formatTime(timestamp: Long): String {
@@ -227,8 +186,10 @@ private fun formatTime(timestamp: Long): String {
     val diff = now - timestamp
     return when {
         diff < 60_000 -> "刚刚"
-        diff < 3600_000 -> "${diff / 60_000}分钟前"
-        diff < 86400_000 -> "${diff / 3600_000}小时前"
+        diff < 3_600_000 -> "${diff / 60_000}分钟前"
+        diff < 86_400_000 -> "${diff / 3_600_000}小时前"
         else -> SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(Date(timestamp))
     }
 }
+
+private fun formatNumber(value: Double): String = String.format(Locale.US, "%.1f", value)

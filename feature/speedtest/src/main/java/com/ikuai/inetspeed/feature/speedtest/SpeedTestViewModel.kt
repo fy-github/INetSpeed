@@ -54,6 +54,9 @@ class SpeedTestViewModel @Inject constructor(
     private val _serverPort = MutableStateFlow(5201)
     val serverPort: StateFlow<Int> = _serverPort.asStateFlow()
 
+    private val _cliOutput = MutableStateFlow("")
+    val cliOutput: StateFlow<String> = _cliOutput.asStateFlow()
+
     val recentServers: StateFlow<List<Server>> = serverRepository.getAllFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -191,6 +194,37 @@ class SpeedTestViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun startCliCommand(command: String) {
+        val trimmed = command.trim()
+        if (trimmed.isBlank()) return
+        if (_state.value is SpeedTestState.Running || _state.value is SpeedTestState.Preparing) return
+
+        val testId = UUID.randomUUID().toString()
+        currentTestId = testId
+        _state.value = SpeedTestState.Preparing
+        _cliOutput.value = ""
+
+        currentJob = viewModelScope.launch {
+            val lines = mutableListOf<String>()
+            iperf3Runner.runCli(testId, trimmed).collect { line ->
+                lines.add(line)
+                _cliOutput.value = lines.joinToString("\n")
+                _state.value = SpeedTestState.Running(
+                    progressPercent = 0,
+                    elapsedSeconds = lines.size,
+                )
+            }
+            currentTestId = null
+            currentJob = null
+            _state.value = SpeedTestState.Completed(
+                throughputMbps = 0.0,
+                latencyMs = null,
+                jitterMs = null,
+                packetLossPercent = null,
+            )
         }
     }
 

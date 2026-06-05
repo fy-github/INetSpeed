@@ -1,7 +1,5 @@
 package com.ikuai.inetspeed.feature.speedtest
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,48 +7,50 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ikuai.inetspeed.core.data.error.ErrorCode
 import com.ikuai.inetspeed.core.data.model.Direction
+import com.ikuai.inetspeed.core.data.model.IpVersion
 import com.ikuai.inetspeed.core.data.model.Protocol
-import com.ikuai.inetspeed.feature.speedtest.components.GaugeCanvas
-import com.ikuai.inetspeed.feature.speedtest.components.MetricCards
-import com.ikuai.inetspeed.feature.speedtest.components.formatSpeed
+import com.ikuai.inetspeed.core.data.model.Server
+import com.ikuai.inetspeed.core.designsystem.components.CockpitActionButton
+import com.ikuai.inetspeed.core.designsystem.components.CockpitCurve
+import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitKeyValueRow
+import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
+import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
+import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
+import com.ikuai.inetspeed.core.designsystem.components.CockpitSegmentedControl
+import com.ikuai.inetspeed.core.designsystem.components.CockpitStatusPill
+import com.ikuai.inetspeed.core.designsystem.components.CockpitTextField
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestConfig
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestState
+import java.util.Locale
+import kotlin.math.sin
 
 @Composable
 fun SpeedTestScreen(
@@ -62,267 +62,259 @@ fun SpeedTestScreen(
     val serverAddress by viewModel.serverAddress.collectAsState()
     val serverPort by viewModel.serverPort.collectAsState()
     val recentServers by viewModel.recentServers.collectAsState()
+    val cliOutput by viewModel.cliOutput.collectAsState()
+    var expertInputMode by remember { mutableStateOf(ExpertInputMode.CUSTOM) }
+    var cliBuffer by remember(serverAddress, serverPort) {
+        mutableStateOf("iperf3 -c $serverAddress -p $serverPort -t ${config.durationSeconds} -i 1")
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        BrandHeader(isExpertMode = isExpertMode)
+    LaunchedEffect(cliOutput) {
+        if (cliOutput.isNotBlank()) cliBuffer = cliOutput
+    }
 
-        Spacer(modifier = Modifier.height(12.dp))
+    val active = state.isActive()
+    val realtimeModel = SpeedTestUiRules.realtimeModel(config.protocol, state)
 
-        ServerAddressInput(
-            address = serverAddress,
-            port = serverPort,
-            recentServers = recentServers,
-            onAddressChange = { viewModel.updateServerAddress(it) },
-            onPortChange = { v ->
-                val p = try { v.toInt() } catch (_: Exception) { 5201 }
-                viewModel.updateServerPort(p)
-            },
-            onServerSelect = { viewModel.selectServer(it) },
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        GaugeCanvas(
-            speedMbps = when (val s = state) {
-                is SpeedTestState.Running -> s.currentMbps
-                is SpeedTestState.Completed -> s.throughputMbps
-                else -> 0.0
-            },
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Text(
-            text = "${config.direction.toDisplayName()} · ${config.protocol.toDisplayName()} · ${config.ipVersion.toDisplayName()}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        MetricCards(
-            latencyMs = when (val s = state) {
-                is SpeedTestState.Running -> s.latencyMs
-                is SpeedTestState.Completed -> s.latencyMs
-                else -> null
-            },
-            jitterMs = when (val s = state) {
-                is SpeedTestState.Running -> s.jitterMs
-                is SpeedTestState.Completed -> s.jitterMs
-                else -> null
-            },
-            packetLossPercent = when (val s = state) {
-                is SpeedTestState.Running -> s.packetLossPercent
-                is SpeedTestState.Completed -> s.packetLossPercent
-                else -> null
-            },
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        AnimatedVisibility(visible = isExpertMode || state is SpeedTestState.Idle) {
-            ProtocolDirectionChips(
-                protocol = config.protocol,
-                direction = config.direction,
-                onProtocolChange = { viewModel.updateProtocol(it) },
-                onDirectionChange = { viewModel.updateDirection(it) },
+    CockpitScreen {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            CockpitHeader(
+                title = "INetSpeed",
+                subtitle = if (isExpertMode) "专业网络测试 · 参数会话" else "快速网络测试 · 实时遥测",
+                status = state.statusText(),
             )
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            FilterChip(
-                selected = isExpertMode,
-                onClick = { viewModel.toggleMode() },
-                label = { Text(if (isExpertMode) "专家模式" else "简单模式") },
+            CockpitSegmentedControl(
+                options = listOf("简单模式", "专业模式"),
+                selectedIndex = if (isExpertMode) 1 else 0,
+                onSelected = { index ->
+                    if ((index == 1) != isExpertMode) viewModel.toggleMode()
+                },
             )
-        }
 
-        AnimatedVisibility(visible = isExpertMode) {
-            ExpertParamsPanel(config = config, onConfigChange = { viewModel.updateConfig(it) })
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when (val s = state) {
-            is SpeedTestState.Idle -> {
-                StartTestButton(onClick = { viewModel.startTest() })
-            }
-
-            is SpeedTestState.Preparing -> {
-                StatusBlock("准备中...")
-            }
-
-            is SpeedTestState.Running -> {
-                ProgressIndicator(s.progressPercent, s.elapsedSeconds, config.durationSeconds)
-                Spacer(modifier = Modifier.height(8.dp))
-                CancelButton(onClick = { viewModel.cancelTest() })
-            }
-
-            is SpeedTestState.Cancelling -> {
-                StatusBlock("取消中...")
-            }
-
-            is SpeedTestState.Completed -> {
-                CompletedInfo(s)
-                Spacer(modifier = Modifier.height(8.dp))
-                StartTestButton(onClick = { viewModel.resetToIdle() }, label = "重新测试")
-            }
-
-            is SpeedTestState.Failed -> {
-                ErrorInfo(s.errorCode, s.message)
-                Spacer(modifier = Modifier.height(8.dp))
-                StartTestButton(onClick = { viewModel.resetToIdle() }, label = "重试")
-            }
-
-            is SpeedTestState.Cancelled -> {
-                Text(
-                    text = "测试已取消",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
+            if (isExpertMode) {
+                ExpertModeContent(
+                    state = state,
+                    config = config,
+                    inputMode = expertInputMode,
+                    cliBuffer = cliBuffer,
+                    serverAddress = serverAddress,
+                    serverPort = serverPort,
+                    recentServers = recentServers,
+                    onInputModeChange = { expertInputMode = it },
+                    onCliBufferChange = { if (!active) cliBuffer = it },
+                    onConfigChange = viewModel::updateConfig,
+                    onProtocolChange = viewModel::updateProtocol,
+                    onDirectionChange = viewModel::updateDirection,
+                    onAddressChange = viewModel::updateServerAddress,
+                    onPortChange = viewModel::updateServerPort,
+                    onServerSelect = viewModel::selectServer,
+                    onAction = {
+                        if (active) {
+                            viewModel.cancelTest()
+                        } else if (expertInputMode == ExpertInputMode.CLI) {
+                            viewModel.startCliCommand(cliBuffer)
+                        } else {
+                            viewModel.startTest()
+                        }
+                    },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                StartTestButton(onClick = { viewModel.resetToIdle() })
+            } else {
+                SimpleModeContent(
+                    state = state,
+                    config = config,
+                    model = realtimeModel,
+                    serverAddress = serverAddress,
+                    serverPort = serverPort,
+                    recentServers = recentServers,
+                    onProtocolChange = viewModel::updateProtocol,
+                    onAddressChange = viewModel::updateServerAddress,
+                    onPortChange = viewModel::updateServerPort,
+                    onServerSelect = viewModel::selectServer,
+                    onAction = {
+                        if (active) viewModel.cancelTest() else viewModel.startTest()
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun BrandHeader(isExpertMode: Boolean) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text("INetSpeed", style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = if (isExpertMode) "网络测速 · 专家模式" else "网络测速 · 简单模式",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-            Text(
-                text = "在线",
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServerAddressInput(
-    address: String,
-    port: Int,
-    recentServers: List<com.ikuai.inetspeed.core.data.model.Server>,
+private fun SimpleModeContent(
+    state: SpeedTestState,
+    config: SpeedTestConfig,
+    model: RealtimeTestModel,
+    serverAddress: String,
+    serverPort: Int,
+    recentServers: List<Server>,
+    onProtocolChange: (Protocol) -> Unit,
     onAddressChange: (String) -> Unit,
     onPortChange: (Int) -> Unit,
-    onServerSelect: (com.ikuai.inetspeed.core.data.model.Server) -> Unit,
+    onServerSelect: (Server) -> Unit,
+    onAction: () -> Unit,
 ) {
-    var showDropdown by remember { mutableStateOf(false) }
+    ServerAddressPanel(serverAddress, serverPort, recentServers, onAddressChange, onPortChange, onServerSelect)
+    ProtocolControl(config.protocol, onProtocolChange)
+    CockpitActionButton(
+        text = primaryActionLabel(state, model.actionLabel),
+        onClick = onAction,
+        enabled = serverAddress.isNotBlank(),
+        destructive = state.isActive(),
+    )
+    RealtimeMetrics(protocol = config.protocol, state = state, progressPercent = model.progressPercent)
+    CurveStack(protocol = config.protocol, state = state, curves = model.curves, hasLiveData = model.hasLiveData)
+    StateMessage(state)
+}
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text("服务器地址", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+@Composable
+private fun ExpertModeContent(
+    state: SpeedTestState,
+    config: SpeedTestConfig,
+    inputMode: ExpertInputMode,
+    cliBuffer: String,
+    serverAddress: String,
+    serverPort: Int,
+    recentServers: List<Server>,
+    onInputModeChange: (ExpertInputMode) -> Unit,
+    onCliBufferChange: (String) -> Unit,
+    onConfigChange: (SpeedTestConfig) -> Unit,
+    onProtocolChange: (Protocol) -> Unit,
+    onDirectionChange: (Direction) -> Unit,
+    onAddressChange: (String) -> Unit,
+    onPortChange: (Int) -> Unit,
+    onServerSelect: (Server) -> Unit,
+    onAction: () -> Unit,
+) {
+    val panels = SpeedTestUiRules.expertPanels(inputMode, config.protocol)
+    CockpitSegmentedControl(
+        options = listOf("CUSTOM", "CLI"),
+        selectedIndex = if (inputMode == ExpertInputMode.CUSTOM) 0 else 1,
+        onSelected = { onInputModeChange(if (it == 0) ExpertInputMode.CUSTOM else ExpertInputMode.CLI) },
+    )
+
+    if (panels.showCli) {
+        CliConsolePanel(
+            value = cliBuffer,
+            onValueChange = onCliBufferChange,
+            running = state.isActive(),
+        )
+        CockpitActionButton(
+            text = if (state.isActive()) "停止测试" else "启动会话",
+            onClick = onAction,
+            enabled = cliBuffer.isNotBlank(),
+            destructive = state.isActive(),
+        )
+        StateMessage(state)
+        return
+    }
+
+    if (panels.showServerAddress) {
+        ServerAddressPanel(serverAddress, serverPort, recentServers, onAddressChange, onPortChange, onServerSelect)
+    }
+    if (panels.showParameters) {
+        ExpertParamsPanel(
+            config = config,
+            onConfigChange = onConfigChange,
+            onProtocolChange = onProtocolChange,
+            onDirectionChange = onDirectionChange,
+        )
+    }
+    CockpitActionButton(
+        text = if (state.isActive()) "停止测试" else "启动会话",
+        onClick = onAction,
+        enabled = serverAddress.isNotBlank(),
+        destructive = state.isActive(),
+    )
+    RealtimeMetrics(protocol = config.protocol, state = state, progressPercent = SpeedTestUiRules.realtimeModel(config.protocol, state).progressPercent)
+    CurveStack(protocol = config.protocol, state = state, curves = panels.curves, hasLiveData = SpeedTestUiRules.realtimeModel(config.protocol, state).hasLiveData)
+    StateMessage(state)
+}
+
+@Composable
+private fun ServerAddressPanel(
+    address: String,
+    port: Int,
+    recentServers: List<Server>,
+    onAddressChange: (String) -> Unit,
+    onPortChange: (Int) -> Unit,
+    onServerSelect: (Server) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    CockpitPanel(title = "Server Address", overline = "Target") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                CockpitTextField(
                     value = address,
                     onValueChange = onAddressChange,
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("输入服务器地址") },
-                    trailingIcon = {
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = "选择服务器",
-                            modifier = Modifier.clickable { showDropdown = !showDropdown },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "服务器地址",
+                    placeholder = "输入 iperf3 server",
+                    trailing = {
+                        CockpitStatusPill(
+                            text = "Servers",
+                            modifier = Modifier
+                                .clickable { expanded = true },
                         )
                     },
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = port.toString(),
-                    onValueChange = { onPortChange(try { it.toInt() } catch (_: Exception) { 5201 }) },
-                    modifier = Modifier.width(80.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    label = { Text("端口") },
-                )
-            }
-
-            DropdownMenu(
-                expanded = showDropdown,
-                onDismissRequest = { showDropdown = false },
-            ) {
-                if (recentServers.isEmpty()) {
-                    DropdownMenuItem(
-                        text = { Text("暂无历史记录", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        onClick = { showDropdown = false },
-                    )
-                } else {
-                    recentServers.take(10).forEach { server ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(server.name, style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        "${server.address}:${server.port}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onServerSelect(server)
-                                showDropdown = false
-                            },
-                        )
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    if (recentServers.isEmpty()) {
+                        DropdownMenuItem(text = { Text("暂无服务器记录") }, onClick = { expanded = false })
+                    } else {
+                        recentServers.take(8).forEach { server ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            "${server.address}:${server.port}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onServerSelect(server)
+                                    expanded = false
+                                },
+                            )
+                        }
                     }
                 }
             }
+            CockpitTextField(
+                value = port.toString(),
+                onValueChange = { onPortChange(it.toIntOrNull() ?: port) },
+                modifier = Modifier.width(96.dp),
+                label = "端口",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
         }
+        Text(
+            text = "手动输入服务器，或在系统服务器列表中维护后复用。",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
 @Composable
-private fun ProtocolDirectionChips(
+private fun ProtocolControl(
     protocol: Protocol,
-    direction: Direction,
     onProtocolChange: (Protocol) -> Unit,
-    onDirectionChange: (Direction) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Protocol.entries.forEach { p ->
-            FilterChip(
-                selected = protocol == p,
-                onClick = { onProtocolChange(p) },
-                label = { Text(p.toDisplayName()) },
-            )
-        }
-        Direction.entries.forEach { d ->
-            FilterChip(
-                selected = direction == d,
-                onClick = { onDirectionChange(d) },
-                label = { Text(d.toDisplayName()) },
-            )
-        }
+    CockpitPanel(title = "Protocol", overline = "Mode") {
+        CockpitSegmentedControl(
+            options = listOf("TCP", "UDP"),
+            selectedIndex = if (protocol == Protocol.UDP) 1 else 0,
+            onSelected = { onProtocolChange(if (it == 0) Protocol.TCP else Protocol.UDP) },
+        )
     }
 }
 
@@ -330,169 +322,271 @@ private fun ProtocolDirectionChips(
 private fun ExpertParamsPanel(
     config: SpeedTestConfig,
     onConfigChange: (SpeedTestConfig) -> Unit,
+    onProtocolChange: (Protocol) -> Unit,
+    onDirectionChange: (Direction) -> Unit,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("专家参数", style = MaterialTheme.typography.titleSmall)
-
-            OutlinedTextField(
+    CockpitPanel(title = "专业参数", overline = "Custom Session") {
+        CockpitSegmentedControl(
+            options = listOf("TCP", "UDP"),
+            selectedIndex = if (config.protocol == Protocol.UDP) 1 else 0,
+            onSelected = { onProtocolChange(if (it == 0) Protocol.TCP else Protocol.UDP) },
+        )
+        CockpitSegmentedControl(
+            options = listOf("正向", "反向"),
+            selectedIndex = if (config.direction == Direction.FORWARD) 0 else 1,
+            onSelected = { onDirectionChange(if (it == 0) Direction.FORWARD else Direction.REVERSE) },
+        )
+        CockpitSegmentedControl(
+            options = listOf("IPv4", "IPv6"),
+            selectedIndex = if (config.ipVersion == IpVersion.IPV4) 0 else 1,
+            onSelected = { index ->
+                onConfigChange(config.copy(ipVersion = if (index == 0) IpVersion.IPV4 else IpVersion.IPV6))
+            },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumericField(
+                label = "时长(s)",
                 value = config.durationSeconds.toString(),
-                onValueChange = { v ->
-                    val n = try { v.toInt() } catch (_: Exception) { return@OutlinedTextField }
-                    if (n in 1..3600) onConfigChange(config.copy(durationSeconds = n))
-                },
-                label = { Text("测试时长 (秒)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                modifier = Modifier.weight(1f),
+                onValueChange = { it.toIntOrNull()?.takeIf { n -> n in 1..3600 }?.let { n -> onConfigChange(config.copy(durationSeconds = n)) } },
             )
-
-            OutlinedTextField(
+            NumericField(
+                label = "并发",
                 value = config.parallelStreams.toString(),
-                onValueChange = { v ->
-                    val n = try { v.toInt() } catch (_: Exception) { return@OutlinedTextField }
-                    if (n in 1..32) onConfigChange(config.copy(parallelStreams = n))
-                },
-                label = { Text("并发线程数") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                modifier = Modifier.weight(1f),
+                onValueChange = { it.toIntOrNull()?.takeIf { n -> n in 1..32 }?.let { n -> onConfigChange(config.copy(parallelStreams = n)) } },
             )
-
-            OutlinedTextField(
-                value = config.udpBandwidth ?: "",
-                onValueChange = { onConfigChange(config.copy(udpBandwidth = it.ifBlank { null })) },
-                label = { Text("UDP 带宽 (留空为不限)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("如 100M") },
-            )
-
-            OutlinedTextField(
-                value = config.windowSize ?: "",
+        }
+        CockpitTextField(
+            value = config.udpBandwidth.orEmpty(),
+            onValueChange = { onConfigChange(config.copy(udpBandwidth = it.ifBlank { null })) },
+            modifier = Modifier.fillMaxWidth(),
+            label = "UDP 带宽",
+            placeholder = "100M",
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CockpitTextField(
+                value = config.windowSize.orEmpty(),
                 onValueChange = { onConfigChange(config.copy(windowSize = it.ifBlank { null })) },
-                label = { Text("窗口大小 (留空为默认)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("如 256K") },
+                modifier = Modifier.weight(1f),
+                label = "窗口",
+                placeholder = "256K",
             )
-
-            OutlinedTextField(
-                value = config.bufferLength ?: "",
+            CockpitTextField(
+                value = config.bufferLength.orEmpty(),
                 onValueChange = { onConfigChange(config.copy(bufferLength = it.ifBlank { null })) },
-                label = { Text("缓冲区长度 (留空为默认)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("如 128K") },
+                modifier = Modifier.weight(1f),
+                label = "缓冲",
+                placeholder = "128K",
             )
         }
     }
 }
 
 @Composable
-private fun ProgressIndicator(percent: Int, elapsed: Int, total: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        CircularProgressIndicator(progress = { percent / 100f })
-        Text(
-            text = "${elapsed}s / ${total}s",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 8.dp),
+private fun NumericField(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onValueChange: (String) -> Unit,
+) {
+    CockpitTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = label,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    )
+}
+
+@Composable
+private fun CliConsolePanel(
+    value: String,
+    onValueChange: (String) -> Unit,
+    running: Boolean,
+) {
+    CockpitPanel(title = "CLI Console", overline = if (running) "Session Running" else "Raw Iperf3") {
+        CockpitTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(260.dp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            label = if (running) "命令回显" else "输入 iperf3 命令",
+            placeholder = "iperf3 -c 10.10.8.12 -p 5201 -t 30 -i 1",
+            singleLine = false,
+            minLines = 10,
+            maxLines = 12,
         )
     }
 }
 
 @Composable
-private fun StatusBlock(text: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        CircularProgressIndicator()
-        Text(text, modifier = Modifier.padding(top = 8.dp))
-    }
-}
-
-@Composable
-private fun StartTestButton(onClick: () -> Unit, label: String = "开始测试") {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-    ) {
-        Icon(Icons.Default.PlayArrow, contentDescription = null)
-        Text(label, modifier = Modifier.padding(vertical = 8.dp))
-    }
-}
-
-@Composable
-private fun CancelButton(onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick) {
-        Text("取消测试", color = MaterialTheme.colorScheme.error)
-    }
-}
-
-@Composable
-private fun CompletedInfo(state: SpeedTestState.Completed) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("测试完成", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "${formatSpeed(state.throughputMbps)} Mbps",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+private fun RealtimeMetrics(
+    protocol: Protocol,
+    state: SpeedTestState,
+    progressPercent: Int,
+) {
+    val throughput = throughputOf(state)
+    CockpitPanel(title = "实时数据", overline = protocol.name) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            CockpitMetricTile("带宽", "${formatNumber(throughput)} Mbps", modifier = Modifier.weight(1f))
+            CockpitMetricTile("进度", "$progressPercent%", modifier = Modifier.weight(1f), accent = MaterialTheme.colorScheme.secondary)
+            if (protocol == Protocol.TCP) {
+                CockpitMetricTile("状态", state.shortText(), modifier = Modifier.weight(1f), accent = MaterialTheme.colorScheme.tertiary)
+            }
         }
-    }
-}
-
-@Composable
-private fun ErrorInfo(errorCode: ErrorCode, message: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(errorCode.userMessage, style = MaterialTheme.typography.bodyMedium)
-                if (message.isNotBlank() && message != errorCode.userMessage) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
+        if (protocol == Protocol.UDP) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("时延", latencyOf(state)?.let { "${formatNumber(it)} ms" } ?: "--", modifier = Modifier.weight(1f), accent = MaterialTheme.colorScheme.tertiary)
+                CockpitMetricTile("抖动", jitterOf(state)?.let { "${formatNumber(it)} ms" } ?: "--", modifier = Modifier.weight(1f), accent = MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("丢包", lossOf(state)?.let { "${formatNumber(it)}%" } ?: "--", modifier = Modifier.weight(1f), accent = MaterialTheme.colorScheme.error)
             }
         }
     }
 }
 
-private fun Protocol.toDisplayName(): String = when (this) {
-    Protocol.TCP -> "TCP"
-    Protocol.UDP -> "UDP"
-    Protocol.SCTP -> "SCTP"
+@Composable
+private fun CurveStack(
+    protocol: Protocol,
+    state: SpeedTestState,
+    curves: List<TestCurve>,
+    hasLiveData: Boolean,
+) {
+    curves.forEach { curve ->
+        val value = when (curve) {
+            TestCurve.THROUGHPUT -> throughputOf(state)
+            TestCurve.LATENCY -> latencyOf(state) ?: 0.0
+            TestCurve.JITTER -> jitterOf(state) ?: 0.0
+            TestCurve.PACKET_LOSS -> lossOf(state) ?: 0.0
+        }
+        CockpitCurve(
+            title = curve.title(protocol),
+            valueLabel = curve.valueLabel(value, hasLiveData),
+            samples = curveSamples(value, state.progressForSamples(), hasLiveData),
+            color = curve.color(),
+            height = if (curve == TestCurve.THROUGHPUT) 54.dp else 31.dp,
+        )
+    }
 }
 
-private fun Direction.toDisplayName(): String = when (this) {
-    Direction.FORWARD -> "正向"
-    Direction.REVERSE -> "反向"
+@Composable
+private fun StateMessage(state: SpeedTestState) {
+    when (state) {
+        is SpeedTestState.Failed -> {
+            CockpitPanel(title = "错误", overline = state.errorCode.code) {
+                Text(state.message, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        SpeedTestState.Cancelled -> {
+            CockpitPanel(title = "会话已停止", overline = "Cancelled") {
+                Text("测试已取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        is SpeedTestState.Completed -> {
+            CockpitPanel(title = "会话完成", overline = "Completed") {
+                CockpitKeyValueRow("最终吞吐量", "${formatNumber(state.throughputMbps)} Mbps")
+            }
+        }
+        else -> Unit
+    }
 }
 
-private fun com.ikuai.inetspeed.core.data.model.IpVersion.toDisplayName(): String = when (this) {
-    com.ikuai.inetspeed.core.data.model.IpVersion.IPV4 -> "IPv4"
-    com.ikuai.inetspeed.core.data.model.IpVersion.IPV6 -> "IPv6"
+private fun SpeedTestState.isActive(): Boolean =
+    this is SpeedTestState.Preparing || this is SpeedTestState.Running || this is SpeedTestState.Cancelling
+
+private fun SpeedTestState.statusText(): String = when (this) {
+    SpeedTestState.Idle -> "待测"
+    SpeedTestState.Preparing -> "准备中"
+    is SpeedTestState.Running -> "运行中"
+    SpeedTestState.Cancelling -> "停止中"
+    is SpeedTestState.Completed -> "完成"
+    is SpeedTestState.Failed -> "异常"
+    SpeedTestState.Cancelled -> "已停止"
 }
+
+private fun SpeedTestState.shortText(): String = when (this) {
+    SpeedTestState.Idle -> "待测"
+    SpeedTestState.Preparing -> "准备"
+    is SpeedTestState.Running -> "运行"
+    SpeedTestState.Cancelling -> "停止"
+    is SpeedTestState.Completed -> "完成"
+    is SpeedTestState.Failed -> "异常"
+    SpeedTestState.Cancelled -> "停止"
+}
+
+private fun primaryActionLabel(state: SpeedTestState, defaultLabel: String): String = when (state) {
+    is SpeedTestState.Completed -> "重新测试"
+    is SpeedTestState.Failed -> "重试"
+    else -> defaultLabel
+}
+
+private fun throughputOf(state: SpeedTestState): Double = when (state) {
+    is SpeedTestState.Running -> state.currentMbps
+    is SpeedTestState.Completed -> state.throughputMbps
+    else -> 0.0
+}
+
+private fun latencyOf(state: SpeedTestState): Double? = when (state) {
+    is SpeedTestState.Running -> state.latencyMs
+    is SpeedTestState.Completed -> state.latencyMs
+    else -> null
+}
+
+private fun jitterOf(state: SpeedTestState): Double? = when (state) {
+    is SpeedTestState.Running -> state.jitterMs
+    is SpeedTestState.Completed -> state.jitterMs
+    else -> null
+}
+
+private fun lossOf(state: SpeedTestState): Double? = when (state) {
+    is SpeedTestState.Running -> state.packetLossPercent
+    is SpeedTestState.Completed -> state.packetLossPercent
+    else -> null
+}
+
+private fun SpeedTestState.progressForSamples(): Int = when (this) {
+    is SpeedTestState.Running -> progressPercent
+    is SpeedTestState.Completed -> 100
+    else -> 0
+}
+
+private fun TestCurve.title(protocol: Protocol): String = when (this) {
+    TestCurve.THROUGHPUT -> "${protocol.name} 吞吐量曲线"
+    TestCurve.LATENCY -> "时延曲线"
+    TestCurve.JITTER -> "抖动曲线"
+    TestCurve.PACKET_LOSS -> "丢包曲线"
+}
+
+@Composable
+private fun TestCurve.color(): Color = when (this) {
+    TestCurve.THROUGHPUT -> MaterialTheme.colorScheme.primary
+    TestCurve.LATENCY -> MaterialTheme.colorScheme.tertiary
+    TestCurve.JITTER -> MaterialTheme.colorScheme.secondary
+    TestCurve.PACKET_LOSS -> MaterialTheme.colorScheme.error
+}
+
+private fun TestCurve.valueLabel(value: Double, hasLiveData: Boolean): String {
+    if (!hasLiveData) return "等待数据"
+    return when (this) {
+        TestCurve.THROUGHPUT -> "${formatNumber(value)} Mbps"
+        TestCurve.LATENCY -> "${formatNumber(value)} ms"
+        TestCurve.JITTER -> "${formatNumber(value)} ms"
+        TestCurve.PACKET_LOSS -> "${formatNumber(value)}%"
+    }
+}
+
+private fun curveSamples(value: Double, progress: Int, hasLiveData: Boolean): List<Float> {
+    if (!hasLiveData) {
+        return listOf(0.22f, 0.22f, 0.22f, 0.22f, 0.22f, 0.22f, 0.22f, 0.22f, 0.22f)
+    }
+    val base = value.coerceAtLeast(1.0).toFloat()
+    return List(12) { index ->
+        val wave = sin((index + progress.coerceAtLeast(1)) * 0.78).toFloat()
+        val counter = sin((index * 1.17f) + progress * 0.09f).toFloat()
+        (base * (0.58f + wave * 0.20f + counter * 0.12f + (index % 3) * 0.045f)).coerceAtLeast(0.1f)
+    }
+}
+
+private fun formatNumber(value: Double): String = String.format(Locale.US, "%.1f", value)

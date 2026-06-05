@@ -32,6 +32,9 @@ class SettingsViewModel @Inject constructor(
 
     init {
         loadIperfVersion()
+        viewModelScope.launch {
+            themePreferences.observeTheme().collect { _themeMode.value = it }
+        }
     }
 
     fun loadIperfVersion() {
@@ -46,7 +49,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeChoice) {
         themePreferences.setTheme(mode)
-        _themeMode.value = mode
     }
 
     fun triggerSync() {

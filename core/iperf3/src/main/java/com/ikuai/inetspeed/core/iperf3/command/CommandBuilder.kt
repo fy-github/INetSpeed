@@ -82,6 +82,22 @@ object CommandBuilder {
         return listOf("-c", host, "-p", port.toString(), "-t", "1", "--sctp")
     }
 
+    fun parseCliInput(command: String): List<String> {
+        val tokens = splitCommand(command.trim())
+        if (tokens.isEmpty()) {
+            throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "command", "reason" to "empty"))
+        }
+        val args = if (tokens.first().substringAfterLast('/').substringAfterLast('\\') == "iperf3") {
+            tokens.drop(1)
+        } else {
+            tokens
+        }
+        if (args.isEmpty()) {
+            throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "command", "reason" to "missing arguments"))
+        }
+        return args
+    }
+
     /**
      * 校验请求参数
      */
@@ -98,5 +114,33 @@ object CommandBuilder {
         if (request.parallelStreams < 1 || request.parallelStreams > 32) {
             throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "parallelStreams", "value" to request.parallelStreams.toString()))
         }
+    }
+
+    private fun splitCommand(command: String): List<String> {
+        val tokens = mutableListOf<String>()
+        val current = StringBuilder()
+        var quote: Char? = null
+        var escaped = false
+        for (char in command) {
+            when {
+                escaped -> {
+                    current.append(char)
+                    escaped = false
+                }
+                char == '\\' -> escaped = true
+                quote != null && char == quote -> quote = null
+                quote == null && (char == '"' || char == '\'') -> quote = char
+                quote == null && char.isWhitespace() -> {
+                    if (current.isNotEmpty()) {
+                        tokens.add(current.toString())
+                        current.clear()
+                    }
+                }
+                else -> current.append(char)
+            }
+        }
+        if (escaped) current.append('\\')
+        if (current.isNotEmpty()) tokens.add(current.toString())
+        return tokens
     }
 }
