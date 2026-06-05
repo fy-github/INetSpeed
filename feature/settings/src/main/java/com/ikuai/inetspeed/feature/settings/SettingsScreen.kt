@@ -1,6 +1,5 @@
-package com.ikuai.inetspeed.feature.settings
+﻿package com.ikuai.inetspeed.feature.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,12 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,8 +32,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.data.prefs.ThemeChoice
+import com.ikuai.inetspeed.core.designsystem.components.CockpitActionButton
 import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
 import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitListItemSurface
 import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
 import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
 import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
@@ -65,68 +64,41 @@ fun SettingsScreen(
         ) {
             CockpitHeader(
                 title = "设置",
-                subtitle = "Configuration Matrix · 主题 / 同步 / iperf3",
+                subtitle = "SYSTEM MATRIX",
                 status = themeMode.label(),
             )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                CockpitMetricTile("主题", themeMode.label(), Modifier.weight(1f))
-                CockpitMetricTile("同步", syncState.label(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
-                CockpitMetricTile("iperf3", iperfVersion?.version ?: "--", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
-            }
-
-            CockpitPanel(title = "外观", overline = "Theme") {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(Icons.Default.ColorLens, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text("主题模式", style = MaterialTheme.typography.titleSmall)
-                }
+            CockpitPanel(title = "Theme", overline = "System Matrix") {
                 CockpitSegmentedControl(
                     options = ThemeChoice.entries.map { it.label() },
                     selectedIndex = ThemeChoice.entries.indexOf(themeMode),
                     onSelected = { viewModel.setThemeMode(ThemeChoice.entries[it]) },
                 )
             }
-
-            SettingsSection("网络", "Servers") {
+            CockpitPanel(title = "配置矩阵", overline = "Runtime Profile") {
                 SettingsItem(
                     icon = Icons.Default.Dns,
-                    title = "服务器管理",
-                    subtitle = "管理内置、自定义和局域网服务器",
+                    title = "默认服务器",
+                    subtitle = "IPERF.IKUAI.LOCAL:5201",
                     onClick = onNavigateToServers,
                 )
-            }
-
-            SettingsSection("数据", "Sync & Backup") {
-                SettingsItem(
-                    icon = Icons.Default.Sync,
-                    title = "云端同步",
-                    subtitle = syncState.detailLabel(),
-                    onClick = { viewModel.triggerSync() },
-                )
-                SettingsItem(
-                    icon = Icons.Default.Download,
-                    title = "数据导入/导出",
-                    subtitle = "备份和恢复测试记录",
-                    onClick = { showExportDialog = true },
-                )
-            }
-
-            SettingsSection("iperf3", "Runtime") {
                 SettingsItem(
                     icon = Icons.Default.Info,
-                    title = "版本信息",
-                    subtitle = iperfVersion?.let { "v${it.version}" } ?: "加载中...",
+                    title = "默认协议",
+                    subtitle = "TCP · 下载 · IPv4",
+                    onClick = { viewModel.loadIperfVersion() },
+                )
+                SettingsItem(
+                    icon = Icons.Default.Security,
+                    title = "专业模式参数",
+                    subtitle = "时长 30s · 并发 8 · JSON ON",
                     onClick = { viewModel.loadIperfVersion() },
                 )
                 SettingsItem(
                     icon = Icons.Default.Download,
-                    title = "检查更新",
-                    subtitle = "当前渠道: Google Play",
-                    onClick = { },
+                    title = "数据保留",
+                    subtitle = "保留 90 天历史和报告输出",
+                    onClick = { showExportDialog = true },
                 )
-            }
-
-            SettingsSection("关于", "Meta") {
                 SettingsItem(
                     icon = Icons.Default.Security,
                     title = "开源许可",
@@ -140,9 +112,13 @@ fun SettingsScreen(
                     onClick = onNavigateToAbout,
                 )
             }
-
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("SYNC", syncState.label(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("ADS", "OFF", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+            }
+            CockpitActionButton(text = "保存配置", onClick = { viewModel.loadIperfVersion() })
             Text(
-                text = viewModel.getDeviceInfo(),
+                text = "iperf3 ${iperfVersion?.version ?: "--"} · ${viewModel.getDeviceInfo()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -153,7 +129,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
             title = { Text("数据导入/导出") },
-            text = { Text("此功能将在后续版本中支持。当前版本的测试数据已自动保存在本地数据库中。") },
+            text = { Text("当前版本的测试数据会自动保存在本地数据库中。") },
             confirmButton = {
                 TextButton(onClick = { showExportDialog = false }) {
                     Text("知道了")
@@ -164,50 +140,36 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsSection(
-    title: String,
-    overline: String,
-    content: @Composable () -> Unit,
-) {
-    CockpitPanel(title = title, overline = overline) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
 private fun SettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CockpitDot(MaterialTheme.colorScheme.primary)
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    CockpitListItemSurface(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CockpitDot(MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -223,12 +185,4 @@ private fun SyncEngine.SyncState.label(): String = when (this) {
     SyncEngine.SyncState.Syncing -> "同步中"
     is SyncEngine.SyncState.Success -> "完成"
     is SyncEngine.SyncState.Error -> "失败"
-}
-
-private fun SyncEngine.SyncState.detailLabel(): String = when (this) {
-    SyncEngine.SyncState.Idle -> "点击同步"
-    SyncEngine.SyncState.NotLoggedIn -> "未登录"
-    SyncEngine.SyncState.Syncing -> "同步中..."
-    is SyncEngine.SyncState.Success -> "已同步"
-    is SyncEngine.SyncState.Error -> "同步失败: $message"
 }

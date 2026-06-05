@@ -1,5 +1,6 @@
-package com.ikuai.inetspeed.feature.tools
+﻿package com.ikuai.inetspeed.feature.tools
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,13 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -22,27 +19,47 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.designsystem.components.CockpitActionButton
+import com.ikuai.inetspeed.core.designsystem.components.CockpitCurve
 import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
 import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
-import com.ikuai.inetspeed.core.designsystem.components.CockpitKeyValueRow
+import com.ikuai.inetspeed.core.designsystem.components.CockpitListItemSurface
 import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
 import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
 import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
-import com.ikuai.inetspeed.core.designsystem.components.CockpitSegmentedControl
-import com.ikuai.inetspeed.core.network.ping.PingService
-import com.ikuai.inetspeed.core.network.ping.TcpPingService
-import com.ikuai.inetspeed.core.network.traceroute.TracerouteService
+import com.ikuai.inetspeed.core.designsystem.components.CockpitTextField
 
 @Composable
 fun ToolsScreen(
     viewModel: ToolsViewModel = hiltViewModel(),
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var target by remember { mutableStateOf("gateway.local") }
+    var tcpPort by remember { mutableStateOf("5201") }
     val tabs = listOf("PING", "TCPING", "TRACE", "INFO")
+    val pingResults by viewModel.pingResults.collectAsState()
+    val tcpResults by viewModel.tcpPingResults.collectAsState()
+    val hops by viewModel.tracerouteHops.collectAsState()
+    val networkInfo by viewModel.networkInfo.collectAsState()
+    val isPinging by viewModel.isPinging.collectAsState()
+    val isTcpPinging by viewModel.isTcpPinging.collectAsState()
+    val isTracing by viewModel.isTracing.collectAsState()
+    val active = isPinging || isTcpPinging || isTracing
+    val reachablePing = pingResults.filter { it.reachable }
+    val reachableTcp = tcpResults.filter { it.reachable }
+    val latencyValues = when (selectedTab) {
+        1 -> reachableTcp.mapNotNull { it.latencyMs?.toFloat() }
+        2 -> hops.mapNotNull { it.latencyMs?.toFloat() }
+        else -> reachablePing.mapNotNull { it.avgLatencyMs?.toFloat() }
+    }
+    val avgLatency = latencyValues.average().takeIf { !it.isNaN() }
+    val loss = when (selectedTab) {
+        0 -> if (pingResults.isEmpty()) 0.0 else ((pingResults.size - reachablePing.size) * 100.0) / pingResults.size
+        1 -> if (tcpResults.isEmpty()) 0.0 else ((tcpResults.size - reachableTcp.size) * 100.0) / tcpResults.size
+        else -> 0.0
+    }
 
     CockpitScreen {
         Column(
@@ -52,260 +69,98 @@ fun ToolsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             CockpitHeader(
-                title = "网络工具",
-                subtitle = "诊断控制台 · 连通性 / 路由 / 链路信息",
+                title = "工具",
+                subtitle = "DIAGNOSTIC CONSOLE",
                 status = tabs[selectedTab],
             )
-            CockpitSegmentedControl(
-                options = tabs,
-                selectedIndex = selectedTab,
-                onSelected = { selectedTab = it },
-            )
-            when (selectedTab) {
-                0 -> PingTab(viewModel, Modifier.weight(1f))
-                1 -> TcpPingTab(viewModel, Modifier.weight(1f))
-                2 -> TracerouteTab(viewModel, Modifier.weight(1f))
-                3 -> NetworkInfoTab(viewModel, Modifier.weight(1f))
+            CockpitPanel(title = "Target", overline = tabs[selectedTab]) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CockpitTextField(
+                        value = target,
+                        onValueChange = { target = it },
+                        modifier = Modifier.weight(1f),
+                        label = null,
+                        placeholder = "gateway.local",
+                        fieldHeight = 46.dp,
+                    )
+                    if (selectedTab == 1) {
+                        CockpitTextField(
+                            value = tcpPort,
+                            onValueChange = { tcpPort = it },
+                            modifier = Modifier.width(76.dp),
+                            label = null,
+                            placeholder = "5201",
+                            fieldHeight = 46.dp,
+                        )
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-private fun PingTab(viewModel: ToolsViewModel, modifier: Modifier = Modifier) {
-    val results by viewModel.pingResults.collectAsState()
-    val isPinging by viewModel.isPinging.collectAsState()
-    var target by remember { mutableStateOf("") }
-    val reachable = results.filter { it.reachable }
-    val avg = reachable.mapNotNull { it.avgLatencyMs }.average().takeIf { !it.isNaN() }
-    val loss = if (results.isEmpty()) 0.0 else ((results.size - reachable.size) * 100.0) / results.size
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ToolCommandPanel(
-            title = "ICMP Ping",
-            target = target,
-            onTargetChange = { target = it },
-            action = if (isPinging) "停止" else "开始 Ping",
-            running = isPinging,
-            enabled = target.isNotBlank(),
-            onAction = { if (isPinging) viewModel.stopPing() else viewModel.startPing(target) },
-        )
-        MetricStrip(
-            listOf(
-                "发送" to results.size.toString(),
-                "接收" to reachable.size.toString(),
-                "丢包" to "${loss.toInt()}%",
-                "平均" to (avg?.let { "${it.toInt()}ms" } ?: "--"),
-            ),
-        )
-        ResultConsole(modifier = Modifier.weight(1f), empty = "等待 Ping 数据", isEmpty = results.isEmpty()) {
-            items(results.reversed()) { PingResultRow(it) }
-        }
-    }
-}
-
-@Composable
-private fun TcpPingTab(viewModel: ToolsViewModel, modifier: Modifier = Modifier) {
-    val results by viewModel.tcpPingResults.collectAsState()
-    val isTcpPinging by viewModel.isTcpPinging.collectAsState()
-    var target by remember { mutableStateOf("") }
-    var port by remember { mutableStateOf("5201") }
-    val reachable = results.filter { it.reachable }
-    val avg = reachable.mapNotNull { it.latencyMs }.average().takeIf { !it.isNaN() }
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CockpitPanel(title = "TCP Port Probe", overline = "Socket") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = target,
-                    onValueChange = { target = it },
-                    label = { Text("目标地址") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it },
-                    label = { Text("端口") },
-                    singleLine = true,
-                    modifier = Modifier.width(96.dp),
-                )
+            ToolDeck(selectedTab = selectedTab, onSelected = { selectedTab = it })
+            CockpitCurve(
+                title = "Diagnostic waveform",
+                valueLabel = avgLatency?.let { "${it.toInt()} ms avg" } ?: if (selectedTab == 3) (networkInfo?.networkType ?: "等待数据") else "等待数据",
+                samples = latencySamples(latencyValues),
+                height = 82.dp,
+                yAxisUnit = if (selectedTab == 3) "Mbps" else "ms",
+                color = if (selectedTab == 1) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("RTT", avgLatency?.let { "${it.toInt()}ms" } ?: "--", Modifier.weight(1f))
+                CockpitMetricTile("TTL", if (selectedTab == 2) hops.size.toString() else "--", Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("LOSS", "${loss.toInt()}%", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
             }
             CockpitActionButton(
-                text = if (isTcpPinging) "停止" else "开始 Tcping",
+                text = if (active) "停止诊断" else "开始诊断",
                 onClick = {
-                    if (isTcpPinging) viewModel.stopTcpPing() else viewModel.startTcpPing(target, port.toIntOrNull() ?: 5201)
+                    when (selectedTab) {
+                        0 -> if (isPinging) viewModel.stopPing() else viewModel.startPing(target)
+                        1 -> if (isTcpPinging) viewModel.stopTcpPing() else viewModel.startTcpPing(target, tcpPort.toIntOrNull() ?: 5201)
+                        2 -> if (!isTracing) viewModel.startTraceroute(target)
+                        3 -> viewModel.loadNetworkInfo()
+                    }
                 },
-                enabled = target.isNotBlank(),
-                destructive = isTcpPinging,
+                enabled = target.isNotBlank() && (selectedTab != 2 || !isTracing),
+                destructive = active,
             )
         }
-        MetricStrip(
-            listOf(
-                "发送" to results.size.toString(),
-                "连通" to reachable.size.toString(),
-                "失败" to (results.size - reachable.size).toString(),
-                "延迟" to (avg?.let { "${it.toInt()}ms" } ?: "--"),
-            ),
-        )
-        ResultConsole(modifier = Modifier.weight(1f), empty = "等待 Tcping 数据", isEmpty = results.isEmpty()) {
-            items(results.reversed()) { TcpPingResultRow(it) }
+    }
+}
+
+@Composable
+private fun ToolDeck(
+    selectedTab: Int,
+    onSelected: (Int) -> Unit,
+) {
+    CockpitPanel(title = "工具矩阵", overline = "Probe Modules") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ToolCard("Ping", "LATENCY PROBE", selectedTab == 0, { onSelected(0) }, Modifier.weight(1f))
+            ToolCard("Traceroute", "ROUTE PATH", selectedTab == 2, { onSelected(2) }, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ToolCard("Tcping", "PORT PROBE", selectedTab == 1, { onSelected(1) }, Modifier.weight(1f))
+            ToolCard("网络信息", "INTERFACE MAP", selectedTab == 3, { onSelected(3) }, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun TracerouteTab(viewModel: ToolsViewModel, modifier: Modifier = Modifier) {
-    val hops by viewModel.tracerouteHops.collectAsState()
-    val isTracing by viewModel.isTracing.collectAsState()
-    var target by remember { mutableStateOf("") }
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ToolCommandPanel(
-            title = "Traceroute",
-            target = target,
-            onTargetChange = { target = it },
-            action = if (isTracing) "追踪中" else "开始 Traceroute",
-            running = isTracing,
-            enabled = target.isNotBlank() && !isTracing,
-            onAction = { viewModel.startTraceroute(target) },
-        )
-        MetricStrip(
-            listOf(
-                "跳数" to hops.size.toString(),
-                "目标" to (target.ifBlank { "--" }),
-                "状态" to if (isTracing) "运行" else "待命",
-            ),
-        )
-        ResultConsole(modifier = Modifier.weight(1f), empty = "等待路由跳点", isEmpty = hops.isEmpty()) {
-            items(hops) { TracerouteHopRow(it) }
-        }
-    }
-}
-
-@Composable
-private fun NetworkInfoTab(viewModel: ToolsViewModel, modifier: Modifier = Modifier) {
-    val info by viewModel.networkInfo.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadNetworkInfo()
-    }
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CockpitPanel(title = "链路信息", overline = "Interface") {
-            if (info == null) {
-                CockpitActionButton(text = "获取网络信息", onClick = { viewModel.loadNetworkInfo() })
-            } else {
-                val n = info!!
-                CockpitKeyValueRow("网络类型", n.networkType)
-                CockpitKeyValueRow("IPv4", n.ipv4 ?: "不可用")
-                CockpitKeyValueRow("IPv6", n.ipv6 ?: "不可用")
-                CockpitKeyValueRow("网关", n.gateway ?: "不可用")
-                CockpitKeyValueRow("DNS", n.dns ?: "不可用")
-                n.ssid?.let {
-                    CockpitKeyValueRow("WiFi 名称", it)
-                    CockpitKeyValueRow("信号强度", "${n.signalStrength} dBm")
-                    CockpitKeyValueRow("连接速度", "${n.linkSpeed} Mbps")
-                }
-                CockpitKeyValueRow("MAC 地址", n.macAddress ?: "不可用")
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolCommandPanel(
+private fun ToolCard(
     title: String,
-    target: String,
-    onTargetChange: (String) -> Unit,
-    action: String,
-    running: Boolean,
-    enabled: Boolean,
-    onAction: () -> Unit,
-) {
-    CockpitPanel(title = title, overline = if (running) "Running" else "Ready") {
-        OutlinedTextField(
-            value = target,
-            onValueChange = onTargetChange,
-            label = { Text("目标地址") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        CockpitActionButton(text = action, onClick = onAction, enabled = enabled, destructive = running)
-    }
-}
-
-@Composable
-private fun MetricStrip(metrics: List<Pair<String, String>>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        metrics.forEach { (label, value) ->
-            CockpitMetricTile(label = label, value = value, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun ResultConsole(
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    empty: String,
-    isEmpty: Boolean,
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
-    CockpitPanel(modifier = modifier, title = "回显", overline = "Stream") {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (isEmpty) {
-                item { Text(empty, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            content()
+    CockpitListItemSurface(modifier = modifier.clickable(onClick = onClick)) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            CockpitDot(if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }
 
-@Composable
-private fun PingResultRow(result: PingService.PingResult) {
-    ConsoleRow(
-        ok = result.reachable,
-        metric = result.avgLatencyMs?.let { "${it.toInt()}ms" } ?: "超时",
-        text = result.host,
-    )
-}
-
-@Composable
-private fun TcpPingResultRow(result: TcpPingService.TcpPingResult) {
-    ConsoleRow(
-        ok = result.reachable,
-        metric = result.latencyMs?.let { "${it.toInt()}ms" } ?: "超时",
-        text = "${result.host}:${result.port}",
-    )
-}
-
-@Composable
-private fun TracerouteHopRow(hop: TracerouteService.TracerouteHop) {
-    ConsoleRow(
-        ok = hop.latencyMs != null,
-        metric = "#${hop.hopNumber}",
-        text = "${hop.host}  ${hop.latencyMs?.let { "${it.toInt()}ms" } ?: "*"}",
-    )
-}
-
-@Composable
-private fun ConsoleRow(ok: Boolean, metric: String, text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CockpitDot(if (ok) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error)
-        Text(metric, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(58.dp))
-        Text(
-            text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+private fun latencySamples(values: List<Float>): List<Float> {
+    if (values.isEmpty()) return listOf(0.32f, 0.40f, 0.36f, 0.48f, 0.42f, 0.54f, 0.45f, 0.50f)
+    return values.takeLast(16).map { it.coerceAtLeast(1f) }
 }

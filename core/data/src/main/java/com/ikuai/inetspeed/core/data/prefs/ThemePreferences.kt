@@ -20,7 +20,7 @@ class ThemePreferences @Inject constructor(
         context.getSharedPreferences("inetspeed_theme", Context.MODE_PRIVATE)
 
     fun getTheme(): ThemeChoice {
-        val value = prefs.getString(KEY_THEME, ThemeChoice.DARK.name) ?: ThemeChoice.DARK.name
+        val value = prefs.getString(KEY_THEME, ThemeChoice.SYSTEM.name) ?: ThemeChoice.SYSTEM.name
         return parseTheme(value)
     }
 
@@ -37,7 +37,7 @@ class ThemePreferences @Inject constructor(
         return try {
             ThemeChoice.valueOf(value)
         } catch (_: Exception) {
-            ThemeChoice.DARK
+            ThemeChoice.SYSTEM
         }
     }
 

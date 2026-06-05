@@ -1,6 +1,10 @@
 package com.ikuai.inetspeed.feature.speedtest
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.data.model.Direction
 import com.ikuai.inetspeed.core.data.model.IpVersion
@@ -39,6 +45,7 @@ import com.ikuai.inetspeed.core.data.model.Protocol
 import com.ikuai.inetspeed.core.data.model.Server
 import com.ikuai.inetspeed.core.designsystem.components.CockpitActionButton
 import com.ikuai.inetspeed.core.designsystem.components.CockpitCurve
+import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
 import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
 import com.ikuai.inetspeed.core.designsystem.components.CockpitKeyValueRow
 import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
@@ -246,44 +253,80 @@ private fun ServerAddressPanel(
     onServerSelect: (Server) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    CockpitPanel(title = "Server Address", overline = "Target") {
+    val menuColor = MaterialTheme.colorScheme.surface
+    CockpitPanel(title = "服务器地址") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(modifier = Modifier.weight(1f)) {
-                CockpitTextField(
-                    value = address,
-                    onValueChange = onAddressChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "服务器地址",
-                    placeholder = "输入 iperf3 server",
-                    trailing = {
-                        CockpitStatusPill(
-                            text = "Servers",
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    CockpitTextField(
+                        value = address,
+                        onValueChange = onAddressChange,
+                        modifier = Modifier.weight(1f),
+                        label = null,
+                        placeholder = "iperf3 server",
+                        fieldHeight = 48.dp,
+                    )
+                    Box {
+                        Box(
                             modifier = Modifier
-                                .clickable { expanded = true },
-                        )
-                    },
-                )
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    if (recentServers.isEmpty()) {
-                        DropdownMenuItem(text = { Text("暂无服务器记录") }, onClick = { expanded = false })
-                    } else {
-                        recentServers.take(8).forEach { server ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(
-                                            "${server.address}:${server.port}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    onServerSelect(server)
-                                    expanded = false
-                                },
+                                .height(48.dp)
+                                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)), RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
+                                .clickable { expanded = true }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = androidx.compose.ui.Alignment.Center,
+                        ) {
+                            Text(
+                                text = "选择",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1,
                             )
+                        }
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            containerColor = menuColor,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp,
+                            properties = PopupProperties(focusable = true),
+                            modifier = Modifier
+                                .background(menuColor, RoundedCornerShape(8.dp))
+                                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)), RoundedCornerShape(8.dp)),
+                        ) {
+                            if (recentServers.isEmpty()) {
+                                DropdownMenuItem(text = { Text("暂无服务器记录") }, onClick = { expanded = false })
+                            } else {
+                                recentServers.take(8).forEach { server ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                                CockpitDot(MaterialTheme.colorScheme.primary)
+                                                Column {
+                                                    Text(
+                                                        server.name.ifBlank { server.address },
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    Text(
+                                                        "${server.address}:${server.port}",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            onServerSelect(server)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -291,16 +334,13 @@ private fun ServerAddressPanel(
             CockpitTextField(
                 value = port.toString(),
                 onValueChange = { onPortChange(it.toIntOrNull() ?: port) },
-                modifier = Modifier.width(96.dp),
-                label = "端口",
+                modifier = Modifier.width(78.dp),
+                label = null,
+                placeholder = "5201",
+                fieldHeight = 48.dp,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         }
-        Text(
-            text = "手动输入服务器，或在系统服务器列表中维护后复用。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -309,13 +349,11 @@ private fun ProtocolControl(
     protocol: Protocol,
     onProtocolChange: (Protocol) -> Unit,
 ) {
-    CockpitPanel(title = "Protocol", overline = "Mode") {
-        CockpitSegmentedControl(
-            options = listOf("TCP", "UDP"),
-            selectedIndex = if (protocol == Protocol.UDP) 1 else 0,
-            onSelected = { onProtocolChange(if (it == 0) Protocol.TCP else Protocol.UDP) },
-        )
-    }
+    CockpitSegmentedControl(
+        options = listOf("TCP", "UDP"),
+        selectedIndex = if (protocol == Protocol.UDP) 1 else 0,
+        onSelected = { onProtocolChange(if (it == 0) Protocol.TCP else Protocol.UDP) },
+    )
 }
 
 @Composable
@@ -405,19 +443,19 @@ private fun CliConsolePanel(
     onValueChange: (String) -> Unit,
     running: Boolean,
 ) {
-    CockpitPanel(title = "CLI Console", overline = if (running) "Session Running" else "Raw Iperf3") {
+    CockpitPanel(title = "输入 iperf3 命令") {
         CockpitTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp),
+                .height(360.dp),
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-            label = if (running) "命令回显" else "输入 iperf3 命令",
+            label = null,
             placeholder = "iperf3 -c 10.10.8.12 -p 5201 -t 30 -i 1",
             singleLine = false,
             minLines = 10,
-            maxLines = 12,
+            maxLines = 16,
         )
     }
 }
@@ -466,7 +504,8 @@ private fun CurveStack(
             valueLabel = curve.valueLabel(value, hasLiveData),
             samples = curveSamples(value, state.progressForSamples(), hasLiveData),
             color = curve.color(),
-            height = if (curve == TestCurve.THROUGHPUT) 54.dp else 31.dp,
+            height = if (curve == TestCurve.THROUGHPUT) 78.dp else 48.dp,
+            yAxisUnit = curve.unit(),
         )
     }
 }
@@ -575,6 +614,13 @@ private fun TestCurve.valueLabel(value: Double, hasLiveData: Boolean): String {
         TestCurve.JITTER -> "${formatNumber(value)} ms"
         TestCurve.PACKET_LOSS -> "${formatNumber(value)}%"
     }
+}
+
+private fun TestCurve.unit(): String = when (this) {
+    TestCurve.THROUGHPUT -> "Mbps"
+    TestCurve.LATENCY -> "ms"
+    TestCurve.JITTER -> "ms"
+    TestCurve.PACKET_LOSS -> "%"
 }
 
 private fun curveSamples(value: Double, progress: Int, hasLiveData: Boolean): List<Float> {

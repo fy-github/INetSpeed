@@ -1,6 +1,5 @@
-package com.ikuai.inetspeed.feature.history
+﻿package com.ikuai.inetspeed.feature.history
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +28,7 @@ import com.ikuai.inetspeed.core.data.model.TestMeasurement
 import com.ikuai.inetspeed.core.designsystem.components.CockpitCurve
 import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
 import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitListItemSurface
 import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
 import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
 import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
@@ -57,10 +57,10 @@ fun HistoryScreen(
         ) {
             CockpitHeader(
                 title = "历史",
-                subtitle = "Telemetry Archive · 速度趋势与记录回放",
-                status = "${measurements.size} 条",
+                subtitle = "TELEMETRY ARCHIVE",
+                status = "${measurements.size} RUNS",
             )
-            CockpitPanel(title = "筛选", overline = "Range") {
+            CockpitPanel(title = "筛选", overline = "Telemetry Filter") {
                 CockpitSegmentedControl(
                     options = HistoryViewModel.TimeRange.entries.map { it.label },
                     selectedIndex = HistoryViewModel.TimeRange.entries.indexOf(timeRange),
@@ -84,20 +84,19 @@ fun HistoryScreen(
                     },
                 )
             }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                CockpitMetricTile("记录", measurements.size.toString(), Modifier.weight(1f))
-                CockpitMetricTile("均值", "${formatNumber(avg)} Mbps", Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
-                CockpitMetricTile("峰值", "${formatNumber(max)} Mbps", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
-            }
-
             CockpitCurve(
-                title = "吞吐量趋势",
-                valueLabel = if (measurements.isEmpty()) "等待记录" else "最近 ${measurements.take(24).size} 次测试",
+                title = "Throughput Trend",
+                valueLabel = if (measurements.isEmpty()) "等待记录" else "+${measurements.take(24).size}%",
                 samples = chartSamples(measurements),
                 color = MaterialTheme.colorScheme.primary,
+                yAxisUnit = "Mbps",
+                height = 96.dp,
             )
-
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("AVG", "${formatNumber(avg)}M", Modifier.weight(1f))
+                CockpitMetricTile("BEST", "${formatNumber(max)}M", Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("RUNS", measurements.size.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+            }
             CockpitPanel(
                 modifier = Modifier.weight(1f),
                 title = "最近测试",
@@ -130,40 +129,39 @@ private fun MeasurementRow(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CockpitDot(if (measurement.protocol == "udp") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary)
-        Column(modifier = Modifier.weight(1f)) {
+    CockpitListItemSurface(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CockpitDot(if (measurement.protocol == "udp") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${formatNumber(measurement.throughputMbps)} Mbps",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                )
+                Text(
+                    text = "${measurement.protocol.uppercase()} · ${measurement.serverName.ifBlank { measurement.serverAddress }} · ${formatTime(measurement.timestamp)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                text = "${formatNumber(measurement.throughputMbps)} Mbps",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-            )
-            Text(
-                text = "${measurement.protocol.uppercase()} · ${measurement.serverName.ifBlank { measurement.serverAddress }} · ${formatTime(measurement.timestamp)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = measurement.latencyMs?.let { "${it.toInt()}ms" } ?: measurement.direction.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(54.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-        Text(
-            text = measurement.latencyMs?.let { "${it.toInt()}ms" } ?: measurement.direction.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.width(54.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
@@ -192,4 +190,4 @@ private fun formatTime(timestamp: Long): String {
     }
 }
 
-private fun formatNumber(value: Double): String = String.format(Locale.US, "%.1f", value)
+private fun formatNumber(value: Double): String = String.format(Locale.US, "%.0f", value)

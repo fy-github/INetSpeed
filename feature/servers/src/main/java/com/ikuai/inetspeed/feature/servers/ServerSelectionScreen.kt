@@ -2,43 +2,48 @@ package com.ikuai.inetspeed.feature.servers
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ikuai.inetspeed.core.data.model.Server
+import com.ikuai.inetspeed.core.designsystem.components.CockpitActionButton
+import com.ikuai.inetspeed.core.designsystem.components.CockpitDot
+import com.ikuai.inetspeed.core.designsystem.components.CockpitHeader
+import com.ikuai.inetspeed.core.designsystem.components.CockpitListItemSurface
+import com.ikuai.inetspeed.core.designsystem.components.CockpitMetricTile
+import com.ikuai.inetspeed.core.designsystem.components.CockpitPanel
+import com.ikuai.inetspeed.core.designsystem.components.CockpitScreen
+import com.ikuai.inetspeed.core.designsystem.components.CockpitTextField
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServerSelectionScreen(
     onServerSelected: (Server) -> Unit,
@@ -47,145 +52,215 @@ fun ServerSelectionScreen(
 ) {
     val servers by viewModel.servers.collectAsState()
     val recommended by viewModel.recommendedServer.collectAsState()
+    var showAddPanel by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshRecommendation()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("选择服务器") },
-                actions = {
-                    IconButton(onClick = { viewModel.refreshRecommendation() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新推荐")
-                    }
-                    IconButton(onClick = { viewModel.startDiscovery() }) {
-                        Icon(Icons.Default.Search, contentDescription = "局域网发现")
+    CockpitScreen {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            CockpitHeader(
+                title = "选择服务器",
+                subtitle = "SERVER CONTROL MATRIX",
+                status = "${servers.size} NODES",
+                action = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = { viewModel.refreshRecommendation() }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "刷新推荐", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = { viewModel.startDiscovery() }) {
+                            Icon(Icons.Default.Search, contentDescription = "局域网发现", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 },
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToAdd) {
-                Icon(Icons.Default.Add, contentDescription = "添加服务器")
-            }
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // 推荐服务器
-            recommended?.let { server ->
-                item {
-                    Text(
-                        text = "推荐",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                    ServerCard(
-                        server = server,
-                        isRecommended = true,
-                        onClick = { onServerSelected(server) },
-                        onFavorite = { viewModel.toggleFavorite(server) },
-                    )
-                }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CockpitMetricTile("TOTAL", servers.size.toString(), Modifier.weight(1f))
+                CockpitMetricTile("CUSTOM", servers.count { !it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("BUILT-IN", servers.count { it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
             }
 
-            // 内置服务器
-            val builtIn = servers.filter { it.isBuiltIn && it.id != recommended?.id }
-            if (builtIn.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "内置服务器",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-                items(builtIn) { server ->
-                    ServerCard(
-                        server = server,
-                        onClick = { onServerSelected(server) },
-                        onFavorite = { viewModel.toggleFavorite(server) },
-                    )
-                }
+            CockpitActionButton(
+                text = if (showAddPanel) "收起添加" else "添加节点",
+                onClick = {
+                    showAddPanel = !showAddPanel
+                    onNavigateToAdd()
+                },
+            )
+
+            if (showAddPanel) {
+                AddServerPanel(
+                    onAdd = { name, address, port ->
+                        viewModel.addCustomServer(name, address, port)
+                        showAddPanel = false
+                    },
+                )
             }
 
-            // 自定义服务器
-            val custom = servers.filter { !it.isBuiltIn }
-            if (custom.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "自定义服务器",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-                items(custom) { server ->
-                    ServerCard(
-                        server = server,
-                        onClick = { onServerSelected(server) },
-                        onFavorite = { viewModel.toggleFavorite(server) },
-                        onDelete = { viewModel.deleteServer(server) },
-                    )
-                }
+            CockpitPanel(
+                modifier = Modifier.weight(1f),
+                title = "服务器节点",
+                overline = "Node Registry",
+            ) {
+                ServerList(
+                    servers = servers,
+                    recommended = recommended,
+                    onServerSelected = onServerSelected,
+                    onFavorite = viewModel::toggleFavorite,
+                    onDelete = viewModel::deleteServer,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ServerCard(
+private fun AddServerPanel(
+    onAdd: (String, String, Int) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var port by remember { mutableStateOf("5201") }
+    val canAdd = address.isNotBlank() && (port.toIntOrNull() ?: 0) in 1..65535
+
+    CockpitPanel(title = "新增服务器", overline = "Custom Node") {
+        CockpitTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = "节点名称",
+            placeholder = "实验室节点",
+        )
+        CockpitTextField(
+            value = address,
+            onValueChange = { address = it },
+            label = "服务器地址",
+            placeholder = "iperf.example.com",
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+            CockpitTextField(
+                value = port,
+                onValueChange = { port = it.filter(Char::isDigit).take(5) },
+                modifier = Modifier.width(96.dp),
+                label = "端口",
+                placeholder = "5201",
+            )
+            CockpitActionButton(
+                text = "确认添加",
+                onClick = {
+                    val cleanAddress = address.trim()
+                    onAdd(name.ifBlank { cleanAddress }, cleanAddress, port.toIntOrNull() ?: 5201)
+                },
+                modifier = Modifier.weight(1f),
+                enabled = canAdd,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerList(
+    servers: List<Server>,
+    recommended: Server?,
+    onServerSelected: (Server) -> Unit,
+    onFavorite: (Server) -> Unit,
+    onDelete: (Server) -> Unit,
+) {
+    if (servers.isEmpty()) {
+        EmptyServers()
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        recommended?.let { server ->
+            item("recommended-${server.id}") {
+                ServerRow(
+                    server = server,
+                    tag = "RECOMMENDED",
+                    onClick = { onServerSelected(server) },
+                    onFavorite = { onFavorite(server) },
+                    onDelete = { onDelete(server) },
+                )
+            }
+        }
+
+        val rest = servers.filter { it.id != recommended?.id }
+        items(rest, key = { it.id }) { server ->
+            ServerRow(
+                server = server,
+                tag = if (server.isBuiltIn) "BUILT-IN" else "CUSTOM",
+                onClick = { onServerSelected(server) },
+                onFavorite = { onFavorite(server) },
+                onDelete = { onDelete(server) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerRow(
     server: Server,
-    isRecommended: Boolean = false,
+    tag: String,
     onClick: () -> Unit,
     onFavorite: () -> Unit,
-    onDelete: (() -> Unit)? = null,
+    onDelete: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = if (isRecommended) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
-    ) {
+    CockpitListItemSurface(modifier = Modifier.clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(modifier = Modifier.padding(end = 8.dp)) {
-                Text("●", color = if (isRecommended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(server.name, style = MaterialTheme.typography.bodyMedium)
+            CockpitDot(
+                when {
+                    tag == "RECOMMENDED" -> MaterialTheme.colorScheme.secondary
+                    server.isBuiltIn -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.tertiary
+                },
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = server.name.ifBlank { server.address },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = tag,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                }
                 Text(
                     text = "${server.address}:${server.port}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                val latency = server.lastLatencyMs
-                if (latency != null) {
-                    Text(
-                        text = "延迟: ${latency.toInt()}ms",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                val region = server.region
-                if (region != null) {
-                    Text(
-                        text = region,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = listOfNotNull(
+                        server.region,
+                        server.lastLatencyMs?.let { "${it.toInt()}ms" },
+                        if (server.isFavorite) "收藏" else null,
+                    ).ifEmpty { listOf("待测") }.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             IconButton(onClick = onFavorite) {
                 Icon(
@@ -194,6 +269,17 @@ private fun ServerCard(
                     tint = if (server.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "删除节点", tint = MaterialTheme.colorScheme.error)
+            }
         }
+    }
+}
+
+@Composable
+private fun EmptyServers() {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("暂无服务器节点", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("点击添加节点录入 iperf3 服务器。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

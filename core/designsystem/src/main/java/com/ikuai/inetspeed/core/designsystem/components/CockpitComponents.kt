@@ -1,4 +1,4 @@
-package com.ikuai.inetspeed.core.designsystem.components
+﻿package com.ikuai.inetspeed.core.designsystem.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -109,7 +110,7 @@ fun CockpitPanel(
             )
             .background(panelColor, RoundedCornerShape(8.dp)),
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.matchParentSize()) {
             drawLine(insetColor, Offset(1f, 1f), Offset(size.width - 1f, 1f), strokeWidth = 1f)
         }
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
@@ -289,43 +290,65 @@ fun CockpitSegmentedControl(
     modifier: Modifier = Modifier,
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val trackColor = if (dark) Color.White.copy(alpha = 0.045f) else Color.White.copy(alpha = 0.70f)
+    val trackColor = if (dark) Color(0xFF031019).copy(alpha = 0.48f) else Color.White.copy(alpha = 0.46f)
     val inactiveText = if (dark) Color(0xFFBDD0D8) else Color(0xFF263B49)
-    Row(
+    val selectedBrush = Brush.horizontalGradient(
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.96f else 0.88f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = if (dark) 0.90f else 0.82f),
+        ),
+    )
+    val borderColor = if (dark) Color.White.copy(alpha = 0.055f) else Color(0xFF0F3148).copy(alpha = 0.075f)
+    val topRailColor = MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.24f else 0.18f)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)), RoundedCornerShape(8.dp))
+            .heightIn(min = 42.dp)
+            .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(8.dp))
             .background(trackColor, RoundedCornerShape(8.dp))
             .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        options.forEachIndexed { index, option ->
-            val selected = index == selectedIndex
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(
-                        if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        RoundedCornerShape(6.dp),
+        Canvas(modifier = Modifier.matchParentSize()) {
+            drawLine(
+                topRailColor,
+                Offset(18.dp.toPx(), 0f),
+                Offset(size.width - 18.dp.toPx(), 0f),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            options.forEachIndexed { index, option ->
+                val selected = index == selectedIndex
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            if (selected) selectedBrush else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)),
+                            RoundedCornerShape(6.dp),
+                        )
+                        .border(
+                            BorderStroke(
+                                1.dp,
+                                if (selected) Color.White.copy(alpha = if (dark) 0.18f else 0.55f) else Color.Transparent,
+                            ),
+                            RoundedCornerShape(6.dp),
+                        )
+                        .clickable { onSelected(index) }
+                        .padding(vertical = 7.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = option,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else inactiveText,
+                        fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                        maxLines = 1,
                     )
-                    .border(
-                        BorderStroke(
-                            1.dp,
-                            if (selected) Color.Transparent else Color.Transparent,
-                        ),
-                        RoundedCornerShape(6.dp),
-                    )
-                    .clickable { onSelected(index) }
-                    .padding(vertical = 9.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = option,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimary else inactiveText,
-                    fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                    maxLines = 1,
-                )
+                }
             }
         }
     }
@@ -344,6 +367,7 @@ fun CockpitTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
     trailing: @Composable (() -> Unit)? = null,
+    fieldHeight: Dp = 44.dp,
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -365,15 +389,15 @@ fun CockpitTextField(
             keyboardOptions = keyboardOptions,
             textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = if (singleLine) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().weight(1f),
             decorationBox = { innerTextField ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .defaultMinSize(minHeight = 39.dp)
-                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)), RoundedCornerShape(8.dp))
-                        .background(if (dark) Color(0xFF02080D).copy(alpha = 0.46f) else Color.White.copy(alpha = 0.82f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 9.dp, vertical = 8.dp),
+                        .then(if (singleLine) Modifier.height(fieldHeight) else Modifier.fillMaxSize())
+                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.24f)), RoundedCornerShape(8.dp))
+                        .background(if (dark) Color(0xFF02080D).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -400,9 +424,12 @@ fun CockpitCurve(
     valueLabel: String,
     samples: List<Float>,
     modifier: Modifier = Modifier,
-    height: Dp = 118.dp,
+    height: Dp = 128.dp,
     color: Color = MaterialTheme.colorScheme.primary,
+    yAxisUnit: String = "",
+    xAxisLabel: String = "鏃堕棿",
 ) {
+    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     CockpitPanel(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -425,37 +452,64 @@ fun CockpitCurve(
             )
         }
         ProgressLine(samples = samples, color = color)
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(height),
-        ) {
-            if (samples.size < 2) return@Canvas
-            val max = samples.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-            val step = size.width / (samples.size - 1)
-            val points = samples.mapIndexed { index, sample ->
-                Offset(index * step, size.height - (sample / max).coerceIn(0f, 1f) * size.height)
-            }
-            val path = Path()
-            val fill = Path()
-            points.forEachIndexed { index, point ->
-                if (index == 0) {
-                    path.moveTo(point.x, point.y)
-                    fill.moveTo(point.x, point.y)
-                } else {
-                    val previous = points[index - 1]
-                    val c1 = Offset(previous.x + step * 0.42f, previous.y)
-                    val c2 = Offset(point.x - step * 0.42f, point.y)
-                    path.cubicTo(c1.x, c1.y, c2.x, c2.y, point.x, point.y)
-                    fill.cubicTo(c1.x, c1.y, c2.x, c2.y, point.x, point.y)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                text = yAxisUnit.ifBlank { xAxisLabel },
+                style = MaterialTheme.typography.labelSmall,
+                color = axisColor,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+            Box(modifier = Modifier.weight(1f)) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(height),
+                ) {
+                    val axisStroke = 1.dp.toPx()
+                    val tick = 4.dp.toPx()
+                    drawLine(axisColor.copy(alpha = 0.26f), Offset(0f, 0f), Offset(0f, size.height), strokeWidth = axisStroke)
+                    drawLine(axisColor.copy(alpha = 0.26f), Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = axisStroke)
+                    val xStep = size.width / 4f
+                    for (i in 1..4) {
+                        val x = xStep * i
+                        drawLine(axisColor.copy(alpha = 0.08f), Offset(x, 0f), Offset(x, size.height), strokeWidth = axisStroke)
+                        drawLine(axisColor.copy(alpha = 0.32f), Offset(x, size.height), Offset(x, size.height - tick), strokeWidth = axisStroke)
+                    }
+                    val yStep = size.height / 4f
+                    for (i in 0..4) {
+                        val y = yStep * i
+                        drawLine(axisColor.copy(alpha = 0.08f), Offset(0f, y), Offset(size.width, y), strokeWidth = axisStroke)
+                        drawLine(axisColor.copy(alpha = 0.32f), Offset(0f, y), Offset(tick, y), strokeWidth = axisStroke)
+                    }
+                    if (samples.size < 2) return@Canvas
+                    val max = samples.maxOrNull()?.coerceAtLeast(1f) ?: 1f
+                    val step = size.width / (samples.size - 1)
+                    val points = samples.mapIndexed { index, sample ->
+                        Offset(index * step, size.height - (sample / max).coerceIn(0f, 1f) * size.height)
+                    }
+                    val path = Path()
+                    val fill = Path()
+                    points.forEachIndexed { index, point ->
+                        if (index == 0) {
+                            path.moveTo(point.x, point.y)
+                            fill.moveTo(point.x, point.y)
+                        } else {
+                            val previous = points[index - 1]
+                            val c1 = Offset(previous.x + step * 0.42f, previous.y)
+                            val c2 = Offset(point.x - step * 0.42f, point.y)
+                            path.cubicTo(c1.x, c1.y, c2.x, c2.y, point.x, point.y)
+                            fill.cubicTo(c1.x, c1.y, c2.x, c2.y, point.x, point.y)
+                        }
+                    }
+                    fill.lineTo(size.width, size.height)
+                    fill.lineTo(0f, size.height)
+                    fill.close()
+                    drawPath(fill, color.copy(alpha = if (height > 48.dp) 0.12f else 0.07f))
+                    drawPath(path, color.copy(alpha = 0.18f), style = Stroke(width = if (height > 48.dp) 9.dp.toPx() else 6.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(path, color.copy(alpha = 0.96f), style = Stroke(width = if (height > 48.dp) 3.dp.toPx() else 2.4.dp.toPx(), cap = StrokeCap.Round))
                 }
             }
-            fill.lineTo(size.width, size.height)
-            fill.lineTo(0f, size.height)
-            fill.close()
-            drawPath(fill, color.copy(alpha = if (height > 40.dp) 0.12f else 0.07f))
-            drawPath(path, color.copy(alpha = 0.18f), style = Stroke(width = if (height > 40.dp) 9.dp.toPx() else 6.dp.toPx(), cap = StrokeCap.Round))
-            drawPath(path, color.copy(alpha = 0.96f), style = Stroke(width = if (height > 40.dp) 3.dp.toPx() else 2.4.dp.toPx(), cap = StrokeCap.Round))
         }
     }
 }
@@ -522,6 +576,27 @@ fun CockpitDot(
 }
 
 @Composable
+fun CockpitListItemSurface(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    val edge = if (dark) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(clickModifier)
+            .border(BorderStroke(1.dp, edge), RoundedCornerShape(8.dp))
+            .background(if (dark) Color(0xFF071018).copy(alpha = 0.52f) else Color.White.copy(alpha = 0.78f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
 fun CockpitBottomNav(
     destinations: List<TopLevelDestination>,
     selectedRoute: String?,
@@ -529,15 +604,22 @@ fun CockpitBottomNav(
     modifier: Modifier = Modifier,
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val navBackground = if (dark) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.75f)
+    val navBackground = if (dark) Color(0xFF030B11).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.86f)
+    val edgeColor = if (dark) MaterialTheme.colorScheme.primary.copy(alpha = 0.34f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+    val softEdge = if (dark) Color.White.copy(alpha = 0.055f) else Color(0xFF0F3148).copy(alpha = 0.07f)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 13.dp, vertical = 8.dp)
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f)), RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, softEdge), RoundedCornerShape(9.dp))
             .background(navBackground, RoundedCornerShape(8.dp))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
+        Canvas(modifier = Modifier.matchParentSize().offset(y = (-1).dp)) {
+            drawLine(edgeColor, Offset(30.dp.toPx(), 0f), Offset(size.width - 30.dp.toPx(), 0f), strokeWidth = 1.2.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(Color.White.copy(alpha = if (dark) 0.04f else 0.30f), Offset(16.dp.toPx(), 1f), Offset(size.width - 16.dp.toPx(), 1f), strokeWidth = 1f)
+            drawLine(edgeColor.copy(alpha = edgeColor.alpha * 0.35f), Offset(42.dp.toPx(), size.height - 1f), Offset(size.width - 42.dp.toPx(), size.height - 1f), strokeWidth = 1.dp.toPx(), cap = StrokeCap.Round)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround,

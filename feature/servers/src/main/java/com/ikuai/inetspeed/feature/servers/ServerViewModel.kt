@@ -37,12 +37,6 @@ class ServerViewModel @Inject constructor(
     private val _editServer = MutableStateFlow<Server?>(null)
     val editServer: StateFlow<Server?> = _editServer.asStateFlow()
 
-    init {
-        viewModelScope.launch {
-            serverRepository.initBuiltInServers()
-        }
-    }
-
     fun refreshRecommendation() {
         viewModelScope.launch {
             val builtIn = serverRepository.getBuiltIn()
