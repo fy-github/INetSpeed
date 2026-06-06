@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,6 +39,15 @@ class ProcessRunner @Inject constructor(
         if (!validation.isValid) {
             emit(IperfEvent.Failed(INetSpeedException(ErrorCode.BINARY_MISSING, mapOf("error" to (validation.error ?: "unknown")))))
             return@flow
+        }
+
+        // UDP 可达性预检
+        if (request.protocol == com.ikuai.inetspeed.core.data.model.Protocol.UDP) {
+            val isReachable = checkUdpReachability(request.host, request.port)
+            if (!isReachable) {
+                emit(IperfEvent.Failed(INetSpeedException(ErrorCode.SERVER_UNREACHABLE, mapOf("error" to "UDP 连接超时，请检查服务器是否支持 UDP 或网络是否阻止 UDP 流量"))))
+                return@flow
+            }
         }
 
         // 构建命令
@@ -57,8 +69,23 @@ class ProcessRunner @Inject constructor(
 
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             var line: String?
-            val timeoutMs = (request.durationSeconds + 30) * 1000L
+            val timeoutMs = (request.durationSeconds + 15) * 1000L
             val startTime = System.currentTimeMillis()
+
+            // 启动 watchdog 线程监控进程超时
+            val watchdog = Thread {
+                try {
+                    Thread.sleep(timeoutMs)
+                    if (process.isAlive) {
+                        process.destroyForcibly()
+                        activeProcesses.remove(request.testId)
+                    }
+                } catch (_: InterruptedException) {
+                    // 线程被中断，正常退出
+                }
+            }
+            watchdog.isDaemon = true
+            watchdog.start()
 
             while (reader.readLine().also { line = it } != null) {
                 val currentLine = line ?: continue
@@ -73,22 +100,22 @@ class ProcessRunner @Inject constructor(
                         emit(IperfEvent.Progress(percent.coerceAtMost(100), interval.megabitsPerSecond))
                     }
                 }
-
-                if (System.currentTimeMillis() - startTime > timeoutMs) {
-                    process.destroyForcibly()
-                    activeProcesses.remove(request.testId)
-                    emit(IperfEvent.Failed(INetSpeedException(ErrorCode.TEST_TIMEOUT, mapOf("output" to rawLines.joinToString("\n").take(500)))))
-                    return@flow
-                }
             }
 
-            val completedInTime = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            // 停止 watchdog 线程
+            watchdog.interrupt()
+            val completedInTime = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
             activeProcesses.remove(request.testId)
 
             if (!completedInTime) {
                 process.destroyForcibly()
                 val errorOutput = rawLines.joinToString("\n")
-                emit(IperfEvent.Failed(INetSpeedException(ErrorCode.TEST_TIMEOUT, mapOf("output" to errorOutput.take(500)))))
+                val errorCode = if (request.protocol == com.ikuai.inetspeed.core.data.model.Protocol.UDP) {
+                    ErrorCode.SERVER_UNREACHABLE
+                } else {
+                    ErrorCode.TEST_TIMEOUT
+                }
+                emit(IperfEvent.Failed(INetSpeedException(errorCode, mapOf("output" to errorOutput.take(500)))))
                 return@flow
             }
 
@@ -96,8 +123,17 @@ class ProcessRunner @Inject constructor(
             if (exitCode != 0) {
                 val errorOutput = rawLines.joinToString("\n")
                 val errorCode = classifyError(errorOutput, exitCode)
+                val diagnosticInfo = mutableMapOf<String, String>()
+                diagnosticInfo["exitCode"] = exitCode.toString()
+                diagnosticInfo["output"] = errorOutput.take(500)
+
+                // 为 UDP 测试添加特定的错误消息
+                if (request.protocol == com.ikuai.inetspeed.core.data.model.Protocol.UDP) {
+                    diagnosticInfo["error"] = "UDP 连接超时，请检查服务器是否支持 UDP 或网络是否阻止 UDP 流量"
+                }
+
                 android.util.Log.e("ProcessRunner", "iperf3 failed: exitCode=$exitCode, errorCode=$errorCode, output=${errorOutput.take(300)}")
-                emit(IperfEvent.Failed(INetSpeedException(errorCode, mapOf("exitCode" to exitCode.toString(), "output" to errorOutput.take(500)))))
+                emit(IperfEvent.Failed(INetSpeedException(errorCode, diagnosticInfo)))
                 return@flow
             }
 
@@ -268,18 +304,49 @@ class ProcessRunner @Inject constructor(
         }
     }
 
-    private fun classifyError(output: String, exitCode: Int): ErrorCode {
+    internal fun classifyError(output: String, exitCode: Int): ErrorCode {
         val lower = output.lowercase()
         return when {
             lower.contains("unable to create a new stream") -> ErrorCode.BINARY_UNSUPPORTED
             lower.contains("permission denied") -> ErrorCode.PERMISSION_DENIED
             lower.contains("connection refused") || lower.contains("connect failed") -> ErrorCode.SERVER_UNREACHABLE
             lower.contains("unable to connect") || lower.contains("no route") -> ErrorCode.SERVER_UNREACHABLE
+            lower.contains("server is busy") -> ErrorCode.SERVER_UNREACHABLE
+            lower.contains("unable to read from stream") || lower.contains("try again") -> ErrorCode.SERVER_UNREACHABLE
+            lower.contains("udp") && lower.contains("timeout") -> ErrorCode.SERVER_UNREACHABLE
+            lower.contains("udp") && lower.contains("unreachable") -> ErrorCode.SERVER_UNREACHABLE
+            output.contains("UDP") && output.contains("超时") -> ErrorCode.SERVER_UNREACHABLE
+            output.contains("UDP") && output.contains("不可达") -> ErrorCode.SERVER_UNREACHABLE
             lower.contains("protocol") && lower.contains("not supported") -> ErrorCode.PROTOCOL_UNSUPPORTED
             lower.contains("sctp") && lower.contains("not supported") -> ErrorCode.PROTOCOL_UNSUPPORTED
-            lower.contains("timeout") -> ErrorCode.TEST_TIMEOUT
+            lower.contains("timeout") || lower.contains("timed out") -> ErrorCode.TEST_TIMEOUT
+            lower.contains("error") -> ErrorCode.UNKNOWN
             exitCode != 0 -> ErrorCode.UNKNOWN
             else -> ErrorCode.UNKNOWN
+        }
+    }
+
+    internal fun checkUdpReachability(host: String, port: Int, timeoutMs: Int = 2000): Boolean {
+        return try {
+            val socket = DatagramSocket()
+            socket.soTimeout = timeoutMs
+            val address = InetAddress.getByName(host)
+            val data = ByteArray(1)
+            val packet = DatagramPacket(data, data.size, address, port)
+            socket.send(packet)
+
+            val receiveData = ByteArray(1024)
+            val receivePacket = DatagramPacket(receiveData, receiveData.size)
+            try {
+                socket.receive(receivePacket)
+                true
+            } catch (e: java.net.SocketTimeoutException) {
+                false
+            } finally {
+                socket.close()
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 
