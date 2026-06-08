@@ -48,7 +48,7 @@ class SpeedTestViewModel @Inject constructor(
     private val _isExpertMode = MutableStateFlow(false)
     val isExpertMode: StateFlow<Boolean> = _isExpertMode.asStateFlow()
 
-    private val _serverAddress = MutableStateFlow("hk-iperf.ikuai.com")
+    private val _serverAddress = MutableStateFlow("")
     val serverAddress: StateFlow<String> = _serverAddress.asStateFlow()
 
     private val _serverPort = MutableStateFlow(5201)
@@ -133,7 +133,7 @@ class SpeedTestViewModel @Inject constructor(
                 ipVersion = _config.value.ipVersion,
                 durationSeconds = _config.value.durationSeconds,
                 parallelStreams = _config.value.parallelStreams,
-                udpBandwidth = _config.value.udpBandwidth,
+                udpBandwidth = if (_config.value.protocol == Protocol.UDP && _config.value.udpBandwidth.isNullOrBlank()) "10M" else _config.value.udpBandwidth,
                 windowSize = _config.value.windowSize,
                 bufferLength = _config.value.bufferLength,
             )
@@ -148,27 +148,44 @@ class SpeedTestViewModel @Inject constructor(
                 android.util.Log.d("SpeedTestVM", "Event: $event")
                 when (event) {
                     is IperfEvent.Interval -> {
-                        lastMbps = event.data.megabitsPerSecond
+                        // Interval 只更新 UDP 指标，不更新 currentMbps
+                        // currentMbps 由 Progress 事件统一负责
                         if (event.data.isUdp) {
                             lastJitter = event.data.jitterMs
                             lastPacketLoss = event.data.packetLossPercent
                         }
                         elapsed++
-                        _state.value = SpeedTestState.Running(
-                            currentMbps = lastMbps,
-                            latencyMs = lastLatency,
-                            jitterMs = lastJitter,
-                            packetLossPercent = lastPacketLoss,
-                            progressPercent = (elapsed * 100) / _config.value.durationSeconds,
-                            elapsedSeconds = elapsed,
-                        )
+                        _state.update {
+                            if (it is SpeedTestState.Running) {
+                                it.copy(
+                                    latencyMs = lastLatency,
+                                    jitterMs = lastJitter,
+                                    packetLossPercent = lastPacketLoss,
+                                    elapsedSeconds = elapsed,
+                                )
+                            } else it
+                        }
                     }
 
                     is IperfEvent.Progress -> {
+                        lastMbps = event.currentMbps
                         _state.update {
                             if (it is SpeedTestState.Running) {
-                                it.copy(progressPercent = event.percent)
-                            } else it
+                                it.copy(
+                                    currentMbps = event.currentMbps,
+                                    progressPercent = event.percent,
+                                )
+                            } else {
+                                // 首个 Progress 事件时创建 Running 状态
+                                SpeedTestState.Running(
+                                    currentMbps = event.currentMbps,
+                                    latencyMs = lastLatency,
+                                    jitterMs = lastJitter,
+                                    packetLossPercent = lastPacketLoss,
+                                    progressPercent = event.percent,
+                                    elapsedSeconds = elapsed,
+                                )
+                            }
                         }
                     }
 
@@ -205,13 +222,15 @@ class SpeedTestViewModel @Inject constructor(
         val testId = UUID.randomUUID().toString()
         currentTestId = testId
         _state.value = SpeedTestState.Preparing
-        _cliOutput.value = ""
+        // 追加分隔线，不清空旧输出
+        val separator = if (_cliOutput.value.isBlank()) "" else "\n${"─".repeat(40)}\n"
+        _cliOutput.value = _cliOutput.value + separator
 
         currentJob = viewModelScope.launch {
             val lines = mutableListOf<String>()
             iperf3Runner.runCli(testId, trimmed).collect { line ->
                 lines.add(line)
-                _cliOutput.value = lines.joinToString("\n")
+                _cliOutput.value = _cliOutput.value + line + "\n"
                 _state.value = SpeedTestState.Running(
                     progressPercent = 0,
                     elapsedSeconds = lines.size,
@@ -254,6 +273,7 @@ class SpeedTestViewModel @Inject constructor(
         currentJob = null
         currentTestId = null
         _state.value = SpeedTestState.Idle
+        _cliOutput.value = ""
     }
 
     private fun saveServerRecord(address: String, port: Int) {

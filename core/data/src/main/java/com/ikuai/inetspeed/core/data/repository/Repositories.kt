@@ -76,14 +76,6 @@ class ServerRepository @Inject constructor(
     }
 
     suspend fun initBuiltInServers() {
-        if (serverDao.getCount() == 0) {
-            val builtIn = listOf(
-                Server(name = "北京节点", address = "bj-iperf.ikuai.com", port = 5201, isBuiltIn = true, region = "华北"),
-                Server(name = "上海节点", address = "sh-iperf.ikuai.com", port = 5201, isBuiltIn = true, region = "华东"),
-                Server(name = "香港节点", address = "hk-iperf.ikuai.com", port = 5201, isBuiltIn = true, region = "港澳"),
-                Server(name = "新加坡节点", address = "sg-iperf.ikuai.com", port = 5201, isBuiltIn = true, region = "东南亚"),
-            )
-            serverDao.insertAll(builtIn)
-        }
+        // 不插入默认服务器，由用户自行添加
     }
 }

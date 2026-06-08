@@ -60,6 +60,8 @@ class ProcessRunner @Inject constructor(
 
         val cmd = listOf(binaryInstaller.getBinaryPath()) + args
         val rawLines = mutableListOf<String>()
+        var finalThroughputMbps = 0.0
+        var intervalsParsed = 0
 
         try {
             val processBuilder = createProcessBuilder(cmd)
@@ -91,9 +93,52 @@ class ProcessRunner @Inject constructor(
                 val currentLine = line ?: continue
                 rawLines.add(currentLine)
 
-                // 解析 interval 输出
-                if (!request.useJson) {
-                    val interval = Iperf3OutputParser.parseIntervalLine(currentLine)
+                // 解析输出：优先尝试 JSON（--json-stream 模式），回退到文本
+                if (currentLine.trimStart().startsWith("{")) {
+                    try {
+                        val json = org.json.JSONObject(currentLine)
+                        val event = json.optString("event", "")
+                        val data = json.optJSONObject("data")
+
+                        when (event) {
+                            "interval" -> {
+                                val sum = data?.optJSONObject("sum")
+                                if (sum != null) {
+                                    val bps = sum.optDouble("bits_per_second", 0.0)
+                                    val mbps = bps / 1_000_000.0
+                                    val retransmits = sum.optInt("retransmits", 0)
+                                    val omitted = sum.optBoolean("omitted", false)
+                                    if (!omitted) {
+                                        val secondIndex = intervalsParsed++
+                                        val percent = ((secondIndex + 1) * 100) / request.durationSeconds
+                                        val speedInterval = com.ikuai.inetspeed.core.iperf3.parser.SpeedInterval(
+                                            streamId = 0,
+                                            secondIndex = secondIndex,
+                                            bitsPerSecond = bps,
+                                            retransmits = retransmits,
+                                            jitterMs = null,
+                                            packetLossPercent = null,
+                                            rawLine = currentLine,
+                                        )
+                                        emit(IperfEvent.Interval(speedInterval))
+                                        emit(IperfEvent.Progress(percent.coerceAtMost(100), mbps))
+                                    }
+                                }
+                            }
+                            "end" -> {
+                                val isSender = request.direction == com.ikuai.inetspeed.core.data.model.Direction.FORWARD
+                                val sumKey = if (isSender) "sum_sent" else "sum_received"
+                                val sum = data?.optJSONObject(sumKey)
+                                val bps = sum?.optDouble("bits_per_second", 0.0) ?: 0.0
+                                finalThroughputMbps = bps / 1_000_000.0
+                            }
+                        }
+                    } catch (_: org.json.JSONException) {
+                        // 非 JSON 行，忽略
+                    }
+                } else if (!request.useJson) {
+                    // 文本模式回退
+                    val interval = com.ikuai.inetspeed.core.iperf3.parser.Iperf3OutputParser.parseIntervalLine(currentLine)
                     if (interval != null) {
                         val percent = ((interval.secondIndex + 1) * 100) / request.durationSeconds
                         emit(IperfEvent.Interval(interval))
@@ -139,7 +184,23 @@ class ProcessRunner @Inject constructor(
 
             // 解析最终结果
             val rawOutput = rawLines.joinToString("\n")
-            val result = if (request.useJson) {
+            val result = if (finalThroughputMbps > 0.0) {
+                // --json-stream 模式：使用从 "end" JSON 解析的吞吐量
+                com.ikuai.inetspeed.core.data.model.TestMeasurement(
+                    timestamp = System.currentTimeMillis(),
+                    serverId = 0,
+                    serverName = "",
+                    serverAddress = request.host,
+                    serverPort = request.port,
+                    protocol = request.protocol.value,
+                    direction = request.direction.value,
+                    ipVersion = request.ipVersion.value,
+                    durationSeconds = request.durationSeconds,
+                    parallelStreams = request.parallelStreams,
+                    throughputMbps = finalThroughputMbps,
+                    status = com.ikuai.inetspeed.core.data.model.TestStatus.COMPLETED.value,
+                )
+            } else if (request.useJson) {
                 JsonResultParser.parse(
                     json = rawOutput,
                     serverId = 0,

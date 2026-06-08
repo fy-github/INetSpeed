@@ -67,6 +67,9 @@ object CommandBuilder {
             args.add("-J")
         }
 
+        // 强制使用 json-stream 模式实现实时输出（iperf3 在 pipe 模式下会块缓冲）
+        args.add("--json-stream")
+
         return args
     }
 
