@@ -9,6 +9,7 @@ import com.ikuai.inetspeed.core.data.dao.ServerDao
 import com.ikuai.inetspeed.core.data.dao.TestMeasurementDao
 import com.ikuai.inetspeed.core.data.dao.ToolRecordDao
 import com.ikuai.inetspeed.core.data.db.INetSpeedDatabase
+import com.ikuai.inetspeed.core.data.db.MIGRATION_1_2
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,7 +28,7 @@ object DatabaseModule {
             context,
             INetSpeedDatabase::class.java,
             "inetspeed.db",
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
     }
 
     @Provides

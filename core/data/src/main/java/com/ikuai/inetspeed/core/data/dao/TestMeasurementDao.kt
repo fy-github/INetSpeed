@@ -68,4 +68,7 @@ interface TestMeasurementDao {
 
     @Query("DELETE FROM test_measurements")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM test_measurements WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<TestMeasurement>
 }

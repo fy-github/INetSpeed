@@ -67,8 +67,6 @@ fun ServerSelectionScreen(
         ) {
             CockpitHeader(
                 title = "选择服务器",
-                subtitle = "SERVER CONTROL MATRIX",
-                status = "${servers.size} NODES",
                 action = {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(onClick = { viewModel.refreshRecommendation() }) {
@@ -82,9 +80,9 @@ fun ServerSelectionScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                CockpitMetricTile("TOTAL", servers.size.toString(), Modifier.weight(1f))
-                CockpitMetricTile("CUSTOM", servers.count { !it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
-                CockpitMetricTile("BUILT-IN", servers.count { it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+                CockpitMetricTile("总数", servers.size.toString(), Modifier.weight(1f))
+                CockpitMetricTile("自定义", servers.count { !it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
+                CockpitMetricTile("内置", servers.count { it.isBuiltIn }.toString(), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
             }
 
             CockpitActionButton(
@@ -106,8 +104,6 @@ fun ServerSelectionScreen(
 
             CockpitPanel(
                 modifier = Modifier.weight(1f),
-                title = "服务器节点",
-                overline = "Node Registry",
             ) {
                 ServerList(
                     servers = servers,

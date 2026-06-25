@@ -2,10 +2,9 @@
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ikuai.inetspeed.core.data.dao.ToolRecordDao
-import com.ikuai.inetspeed.core.data.dao.DiagnosticRunDao
 import com.ikuai.inetspeed.core.data.model.DiagnosticRun
 import com.ikuai.inetspeed.core.data.model.ToolRecord
+import com.ikuai.inetspeed.core.data.repository.ToolsRepository
 import com.ikuai.inetspeed.core.data.model.ToolType
 import com.ikuai.inetspeed.core.network.info.NetworkInfoService
 import com.ikuai.inetspeed.core.network.traceroute.TracerouteService
@@ -25,8 +24,7 @@ class ToolsViewModel @Inject constructor(
     private val tcpPingService: TcpPingService,
     private val tracerouteService: TracerouteService,
     private val networkInfoService: NetworkInfoService,
-    private val toolRecordDao: ToolRecordDao,
-    private val diagnosticRunDao: DiagnosticRunDao,
+    private val toolsRepository: ToolsRepository,
 ) : ViewModel() {
 
     // Ping state
@@ -128,7 +126,7 @@ class ToolsViewModel @Inject constructor(
             val avgLatency = reachable.mapNotNull { it.avgLatencyMs }.average()
             val loss = ((results.size - reachable.size) * 100.0) / results.size
 
-            toolRecordDao.insert(
+            toolsRepository.insertToolRecord(
                 ToolRecord(
                     timestamp = System.currentTimeMillis(),
                     toolType = ToolType.PING.value,
@@ -138,7 +136,7 @@ class ToolsViewModel @Inject constructor(
                 )
             )
 
-            diagnosticRunDao.insert(
+            toolsRepository.insertDiagnosticRun(
                 DiagnosticRun(
                     timestamp = System.currentTimeMillis(),
                     toolType = ToolType.PING.value,
@@ -154,7 +152,7 @@ class ToolsViewModel @Inject constructor(
 
     private fun saveTracerouteResult(target: String, hops: List<TracerouteService.TracerouteHop>) {
         viewModelScope.launch {
-            toolRecordDao.insert(
+            toolsRepository.insertToolRecord(
                 ToolRecord(
                     timestamp = System.currentTimeMillis(),
                     toolType = ToolType.TRACEROUTE.value,
@@ -164,7 +162,7 @@ class ToolsViewModel @Inject constructor(
                 )
             )
 
-            diagnosticRunDao.insert(
+            toolsRepository.insertDiagnosticRun(
                 DiagnosticRun(
                     timestamp = System.currentTimeMillis(),
                     toolType = ToolType.TRACEROUTE.value,

@@ -27,4 +27,5 @@ dependencies {
     api(project(":core:data"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    testImplementation(libs.junit)
 }

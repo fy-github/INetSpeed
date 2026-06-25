@@ -24,7 +24,7 @@ import com.ikuai.inetspeed.core.data.model.ToolRecord
         DiagnosticRun::class,
         PrivacySettings::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class INetSpeedDatabase : RoomDatabase() {

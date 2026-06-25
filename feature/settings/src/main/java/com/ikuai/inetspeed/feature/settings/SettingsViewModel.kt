@@ -1,6 +1,7 @@
 package com.ikuai.inetspeed.feature.settings
 
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ikuai.inetspeed.core.data.prefs.ThemeChoice
@@ -55,7 +56,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 syncEngine.sync()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "Sync failed", e)
+            }
         }
     }
 

@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,34 +65,20 @@ fun SettingsScreen(
         ) {
             CockpitHeader(
                 title = "设置",
-                subtitle = "SYSTEM MATRIX",
-                status = themeMode.label(),
             )
-            CockpitPanel(title = "Theme", overline = "System Matrix") {
+            CockpitPanel(overline = "外观设置") {
                 CockpitSegmentedControl(
                     options = ThemeChoice.entries.map { it.label() },
                     selectedIndex = ThemeChoice.entries.indexOf(themeMode),
                     onSelected = { viewModel.setThemeMode(ThemeChoice.entries[it]) },
                 )
             }
-            CockpitPanel(title = "配置矩阵", overline = "Runtime Profile") {
+            CockpitPanel(overline = "运行配置") {
                 SettingsItem(
                     icon = Icons.Default.Dns,
                     title = "默认服务器",
                     subtitle = "IPERF.IKUAI.LOCAL:5201",
                     onClick = onNavigateToServers,
-                )
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "默认协议",
-                    subtitle = "TCP · 下载 · IPv4",
-                    onClick = { viewModel.loadIperfVersion() },
-                )
-                SettingsItem(
-                    icon = Icons.Default.Security,
-                    title = "专业模式参数",
-                    subtitle = "时长 30s · 并发 8 · JSON ON",
-                    onClick = { viewModel.loadIperfVersion() },
                 )
                 SettingsItem(
                     icon = Icons.Default.Download,
@@ -112,16 +99,7 @@ fun SettingsScreen(
                     onClick = onNavigateToAbout,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                CockpitMetricTile("SYNC", syncState.label(), Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
-                CockpitMetricTile("ADS", "OFF", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
-            }
             CockpitActionButton(text = "保存配置", onClick = { viewModel.loadIperfVersion() })
-            Text(
-                text = "iperf3 ${iperfVersion?.version ?: "--"} · ${viewModel.getDeviceInfo()}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 
@@ -155,10 +133,15 @@ private fun SettingsItem(
             CockpitDot(MaterialTheme.colorScheme.primary)
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                 Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -148,8 +148,8 @@ fun CockpitPanel(
 @Composable
 fun CockpitHeader(
     title: String,
-    subtitle: String,
-    status: String,
+    subtitle: String = "",
+    status: String = "",
     modifier: Modifier = Modifier,
     action: @Composable (() -> Unit)? = null,
 ) {
@@ -182,7 +182,9 @@ fun CockpitHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CockpitStatusPill(status)
+            if (status.isNotEmpty()) {
+                CockpitStatusPill(status)
+            }
             action?.invoke()
         }
     }

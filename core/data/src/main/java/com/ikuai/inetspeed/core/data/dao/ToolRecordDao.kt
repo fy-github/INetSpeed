@@ -34,4 +34,7 @@ interface ToolRecordDao {
 
     @Query("DELETE FROM tool_records")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM tool_records WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<ToolRecord>
 }

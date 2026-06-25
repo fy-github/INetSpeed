@@ -2,15 +2,24 @@ package com.ikuai.inetspeed.core.sync.api
 
 import com.ikuai.inetspeed.core.data.model.Server
 import com.ikuai.inetspeed.core.data.model.TestMeasurement
-import javax.inject.Inject
-import javax.inject.Singleton
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.POST
+import retrofit2.http.Query
 
-@Singleton
-class SyncApi @Inject constructor(
-    private val authManager: com.ikuai.inetspeed.core.sync.auth.AuthManager,
-) {
-    // TODO: Replace with real Retrofit interface
-    // This is a placeholder implementation for M8 architecture
+interface SyncApi {
+
+    @POST("sync/push")
+    suspend fun push(@Body request: PushRequest): Response<PushResponse>
+
+    @POST("sync/pull")
+    suspend fun pull(@Body request: PullRequest): Response<PullResponse>
+
+    @POST("sync/upload-report")
+    suspend fun uploadReport(
+        @Query("reportId") reportId: Long,
+        @Body filePath: String,
+    ): Response<String>
 
     data class PushRequest(
         val lastSyncAt: Long,
@@ -48,19 +57,4 @@ class SyncApi @Inject constructor(
         val serverVersion: Map<String, Any>?,
         val resolution: String,
     )
-
-    suspend fun push(request: PushRequest): Result<PushResponse> {
-        // TODO: Implement real API call
-        return Result.failure(NotImplementedError("Sync API not configured"))
-    }
-
-    suspend fun pull(request: PullRequest): Result<PullResponse> {
-        // TODO: Implement real API call
-        return Result.failure(NotImplementedError("Sync API not configured"))
-    }
-
-    suspend fun uploadReport(reportId: Long, filePath: String): Result<String> {
-        // TODO: Implement real API call
-        return Result.failure(NotImplementedError("Sync API not configured"))
-    }
 }

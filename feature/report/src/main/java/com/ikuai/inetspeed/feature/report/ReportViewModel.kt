@@ -7,11 +7,14 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ikuai.inetspeed.core.data.dao.ReportDao
+import com.ikuai.inetspeed.core.data.repository.ReportRepository
 import com.ikuai.inetspeed.core.data.export.ReportExporter
 import com.ikuai.inetspeed.core.data.model.Report
 import com.ikuai.inetspeed.core.data.model.TestMeasurement
+import com.ikuai.inetspeed.core.data.dao.PrivacySettingsDao
+import com.ikuai.inetspeed.core.data.model.PrivacySettings
 import com.ikuai.inetspeed.core.data.repository.TestRepository
+import com.ikuai.inetspeed.core.privacy.DataMasker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,11 +30,13 @@ import javax.inject.Inject
 @HiltViewModel
 class ReportViewModel @Inject constructor(
     private val testRepository: TestRepository,
-    private val reportDao: ReportDao,
+    private val reportRepository: ReportRepository,
     private val reportExporter: ReportExporter,
+    private val dataMasker: DataMasker,
+    private val privacySettingsDao: PrivacySettingsDao,
 ) : ViewModel() {
 
-    val reports = reportDao.getAllFlow()
+    val reports = reportRepository.getAllFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedMeasurements = MutableStateFlow<List<TestMeasurement>>(emptyList())
@@ -51,7 +56,14 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             _exportState.value = ExportState.Exporting
             try {
-                val file = reportExporter.exportCsv(_selectedMeasurements.value, title)
+                val settings = privacySettingsDao.get() ?: PrivacySettings()
+                val maskedMeasurements = _selectedMeasurements.value.map { m ->
+                    m.copy(
+                        serverName = if (!settings.includeDomainInExport) dataMasker.maskDomain(m.serverName) else m.serverName,
+                        serverAddress = if (!settings.includeIpInExport) dataMasker.maskIpv4(m.serverAddress) else m.serverAddress,
+                    )
+                }
+                val file = reportExporter.exportCsv(maskedMeasurements, title)
                 saveReportRecord(title, "csv", file.absolutePath)
                 _exportState.value = ExportState.Success(file, "CSV")
             } catch (e: Exception) {
@@ -64,7 +76,14 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             _exportState.value = ExportState.Exporting
             try {
-                val file = reportExporter.exportPdf(_selectedMeasurements.value, title)
+                val settings = privacySettingsDao.get() ?: PrivacySettings()
+                val maskedMeasurements = _selectedMeasurements.value.map { m ->
+                    m.copy(
+                        serverName = if (!settings.includeDomainInExport) dataMasker.maskDomain(m.serverName) else m.serverName,
+                        serverAddress = if (!settings.includeIpInExport) dataMasker.maskIpv4(m.serverAddress) else m.serverAddress,
+                    )
+                }
+                val file = reportExporter.exportPdf(maskedMeasurements, title)
                 saveReportRecord(title, "pdf", file.absolutePath)
                 _exportState.value = ExportState.Success(file, "PDF")
             } catch (e: Exception) {
@@ -93,7 +112,7 @@ class ReportViewModel @Inject constructor(
     fun deleteReport(report: Report) {
         viewModelScope.launch {
             File(report.filePath).delete()
-            reportDao.delete(report)
+            reportRepository.delete(report)
         }
     }
 
@@ -103,7 +122,7 @@ class ReportViewModel @Inject constructor(
 
     private suspend fun saveReportRecord(title: String, format: String, filePath: String) {
         val ids = _selectedMeasurements.value.map { it.id }
-        reportDao.insert(
+        reportRepository.insert(
             Report(
                 createdAt = System.currentTimeMillis(),
                 title = title,

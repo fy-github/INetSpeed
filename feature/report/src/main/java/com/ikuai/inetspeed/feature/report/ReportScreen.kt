@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -98,18 +101,6 @@ fun ReportScreen(
                     CockpitMetricTile("AVG", selectedMeasurements.map { it.throughputMbps }.average().takeIf { !it.isNaN() }?.let { formatNumber(it) } ?: "--", Modifier.weight(1f), MaterialTheme.colorScheme.secondary)
                     CockpitMetricTile("RTT", selectedMeasurements.mapNotNull { it.latencyMs }.average().takeIf { !it.isNaN() }?.let { "${it.toInt()}ms" } ?: "--", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
                 }
-                CockpitListItemSurface {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("专业 PDF 报告", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text("图表、参数、链路诊断", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                CockpitListItemSurface {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("CSV / Excel 数据", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text("吞吐、时延、抖动、丢包明细", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
                 CockpitSegmentedControl(
                     options = listOf("PDF", "CSV", "Excel", "PNG"),
                     selectedIndex = selectedFormat,
@@ -124,7 +115,7 @@ fun ReportScreen(
             }
 
             CockpitPanel(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.heightIn(min = 300.dp),
                 title = "历史报告",
                 overline = "Archive",
             ) {

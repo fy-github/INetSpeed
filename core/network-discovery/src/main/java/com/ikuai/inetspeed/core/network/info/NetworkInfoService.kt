@@ -2,6 +2,7 @@ package com.ikuai.inetspeed.core.network.info
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.util.Log
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
@@ -50,7 +51,10 @@ class NetworkInfoService @Inject constructor(
         val ipv6 = getLocalIpv6()
 
         val wifiInfo = if (networkType == "WiFi") {
-            try { @Suppress("DEPRECATION") wm.connectionInfo } catch (_: Exception) { null }
+            try { @Suppress("DEPRECATION") wm.connectionInfo } catch (e: Exception) {
+                Log.w("NetworkInfoService", "Failed to get WiFi info", e)
+                null
+            }
         } else null
 
         NetworkInfo(
@@ -72,7 +76,10 @@ class NetworkInfoService @Inject constructor(
                 .flatMap { it.inetAddresses.toList() }
                 .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
                 ?.hostAddress
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w("NetworkInfoService", "Failed to get IPv4 address", e)
+            null
+        }
     }
 
     private fun getLocalIpv6(): String? {
@@ -81,7 +88,10 @@ class NetworkInfoService @Inject constructor(
                 .flatMap { it.inetAddresses.toList() }
                 .firstOrNull { !it.isLoopbackAddress && it is Inet6Address }
                 ?.hostAddress
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w("NetworkInfoService", "Failed to get IPv6 address", e)
+            null
+        }
     }
 
     private fun getGateway(wm: WifiManager): String? {
@@ -90,7 +100,10 @@ class NetworkInfoService @Inject constructor(
             if (dhcp != null && dhcp.gateway != 0) {
                 formatIp(dhcp.gateway)
             } else null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w("NetworkInfoService", "Failed to get Gateway", e)
+            null
+        }
     }
 
     private fun getDns(): String? {
@@ -98,7 +111,10 @@ class NetworkInfoService @Inject constructor(
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val linkProps = cm.getLinkProperties(cm.activeNetwork)
             linkProps?.dnsServers?.firstOrNull()?.hostAddress
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w("NetworkInfoService", "Failed to get DNS servers", e)
+            null
+        }
     }
 
     private fun getMacAddress(): String {

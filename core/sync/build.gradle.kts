@@ -11,6 +11,11 @@ android {
 
     defaultConfig {
         minSdk = 29
+        buildConfigField("String", "SYNC_BASE_URL", "\"https://api.inetspeed.example.com/\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -28,4 +33,9 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.coroutines.core)
+    implementation(libs.security.crypto)
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
 }

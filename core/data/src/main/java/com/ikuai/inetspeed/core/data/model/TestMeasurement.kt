@@ -1,9 +1,18 @@
 package com.ikuai.inetspeed.core.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "test_measurements")
+@Entity(
+    tableName = "test_measurements",
+    indices = [
+        Index("timestamp"),
+        Index("serverId"),
+        Index("protocol"),
+        Index("isSynced"),
+    ],
+)
 data class TestMeasurement(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val timestamp: Long,

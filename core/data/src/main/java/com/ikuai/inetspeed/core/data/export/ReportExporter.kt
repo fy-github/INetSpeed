@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.os.Environment
 import com.ikuai.inetspeed.core.data.model.TestMeasurement
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -19,7 +20,7 @@ class ReportExporter @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     val exportDir: File
-        get() = File(context.filesDir, "reports").also { it.mkdirs() }
+        get() = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "INetSpeed").also { it.mkdirs() }
 
     /**
      * 导出 CSV

@@ -25,4 +25,7 @@ interface DiagnosticRunDao {
 
     @Query("SELECT * FROM diagnostic_runs WHERE id = :id")
     suspend fun getById(id: Long): DiagnosticRun?
+
+    @Query("SELECT * FROM diagnostic_runs WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<DiagnosticRun>
 }

@@ -16,6 +16,9 @@ junit = "4.13.2"
 espresso = "3.6.1"
 android-test-ext = "1.2.1"
 mockk = "1.13.10"
+security-crypto = "1.1.0-alpha06"
+retrofit = "2.11.0"
+okhttp = "4.12.0"
 
 [libraries]
 # AndroidX Core
@@ -61,6 +64,15 @@ android-test-ext = { group = "androidx.test.ext", name = "junit", version.ref = 
 compose-ui-test = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+
+# Security
+security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security-crypto" }
+
+# Network
+retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp-core = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

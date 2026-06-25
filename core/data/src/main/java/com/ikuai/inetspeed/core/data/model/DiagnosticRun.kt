@@ -1,9 +1,16 @@
 package com.ikuai.inetspeed.core.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "diagnostic_runs")
+@Entity(
+    tableName = "diagnostic_runs",
+    indices = [
+        Index("timestamp"),
+        Index("toolType"),
+    ],
+)
 data class DiagnosticRun(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val timestamp: Long,

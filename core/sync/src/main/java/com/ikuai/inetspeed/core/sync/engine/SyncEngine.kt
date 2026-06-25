@@ -1,5 +1,7 @@
 package com.ikuai.inetspeed.core.sync.engine
 
+import android.util.Log
+import com.google.gson.Gson
 import com.ikuai.inetspeed.core.sync.api.SyncApi
 import com.ikuai.inetspeed.core.sync.auth.AuthManager
 import com.ikuai.inetspeed.core.data.dao.ServerDao
@@ -59,7 +61,7 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun pushChanges() {
-        val unsynced = measurementDao.getAll().filter { !it.isSynced }
+        val unsynced = measurementDao.getUnsynced()
         if (unsynced.isEmpty()) return
 
         val request = SyncApi.PushRequest(
@@ -69,16 +71,17 @@ class SyncEngine @Inject constructor(
             deletedIds = SyncApi.DeletedIds(emptyList(), emptyList()),
         )
 
-        val result = syncApi.push(request)
-        result.onSuccess { response ->
-            // Mark as synced
+        val response = syncApi.push(request)
+        if (response.isSuccessful) {
+            val body = response.body()!!
             unsynced.forEach { m ->
                 measurementDao.update(m.copy(isSynced = true))
             }
-            // Handle conflicts
-            response.conflicts.forEach { conflict ->
+            body.conflicts.forEach { conflict ->
                 handleConflict(conflict)
             }
+        } else {
+            throw Exception("Push failed: ${response.code()} ${response.message()}")
         }
     }
 
@@ -88,10 +91,10 @@ class SyncEngine @Inject constructor(
             types = listOf("measurements", "servers"),
         )
 
-        val result = syncApi.pull(request)
-        result.onSuccess { response ->
-            // Insert new measurements
-            response.measurements.forEach { m ->
+        val response = syncApi.pull(request)
+        if (response.isSuccessful) {
+            val body = response.body()!!
+            body.measurements.forEach { m ->
                 val existing = measurementDao.getById(m.id)
                 if (existing == null) {
                     measurementDao.insert(m.copy(isSynced = true))
@@ -99,8 +102,7 @@ class SyncEngine @Inject constructor(
                     measurementDao.update(m.copy(isSynced = true))
                 }
             }
-            // Insert new servers
-            response.servers.forEach { s ->
+            body.servers.forEach { s ->
                 val existing = serverDao.getById(s.id)
                 if (existing == null) {
                     serverDao.insert(s)
@@ -108,19 +110,61 @@ class SyncEngine @Inject constructor(
                     serverDao.update(s)
                 }
             }
-            // Handle deletions
-            response.deletedIds.measurements.forEach { id ->
+            body.deletedIds.measurements.forEach { id ->
                 measurementDao.deleteById(id)
             }
-            response.deletedIds.servers.forEach { id ->
+            body.deletedIds.servers.forEach { id ->
                 serverDao.deleteById(id)
             }
+        } else {
+            throw Exception("Pull failed: ${response.code()} ${response.message()}")
         }
     }
 
+    private val gson = Gson()
+
     private suspend fun handleConflict(conflict: SyncApi.Conflict) {
-        // Server wins by default
-        // Local delete wins over server modify
+        when (conflict.resolution) {
+            "server_wins" -> {
+                conflict.serverVersion?.let { serverData ->
+                    when (conflict.type) {
+                        "measurement" -> {
+                            val local = measurementDao.getById(conflict.localId)
+                            if (local != null) {
+                                val serverMeasurement = gson.fromJson(
+                                    gson.toJson(serverData), TestMeasurement::class.java
+                                )
+                                measurementDao.update(serverMeasurement.copy(isSynced = true))
+                                Log.i("SyncEngine", "Applied server version for measurement#${conflict.localId}")
+                            }
+                        }
+                        "server" -> {
+                            val local = serverDao.getById(conflict.localId)
+                            if (local != null) {
+                                val serverServer = gson.fromJson(
+                                    gson.toJson(serverData), com.ikuai.inetspeed.core.data.model.Server::class.java
+                                )
+                                serverDao.update(serverServer)
+                                Log.i("SyncEngine", "Applied server version for server#${conflict.localId}")
+                            }
+                        }
+                    }
+                } ?: Log.w("SyncEngine", "server_wins but no serverVersion data for ${conflict.type}#${conflict.localId}")
+            }
+            "local_wins" -> {
+                Log.i("SyncEngine", "Conflict resolved: local wins for ${conflict.type}#${conflict.localId}")
+            }
+            "delete" -> {
+                when (conflict.type) {
+                    "measurement" -> measurementDao.deleteById(conflict.localId)
+                    "server" -> serverDao.deleteById(conflict.localId)
+                }
+                Log.i("SyncEngine", "Conflict resolved: deleted ${conflict.type}#${conflict.localId}")
+            }
+            else -> {
+                Log.w("SyncEngine", "Unknown conflict resolution: ${conflict.resolution} for ${conflict.type}#${conflict.localId}")
+            }
+        }
     }
 
     sealed class SyncState {
