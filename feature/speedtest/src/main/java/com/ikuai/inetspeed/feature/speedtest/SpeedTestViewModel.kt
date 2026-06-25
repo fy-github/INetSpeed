@@ -292,7 +292,9 @@ class SpeedTestViewModel @Inject constructor(
                         )
                     )
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("SpeedTestVM", "Failed to save server record", e)
+            }
         }
     }
 
@@ -309,7 +311,9 @@ class SpeedTestViewModel @Inject constructor(
                     serverPort = serverPort,
                 )
                 testRepository.insert(updated)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("SpeedTestVM", "Failed to save test result", e)
+            }
         }
     }
 }

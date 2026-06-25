@@ -25,7 +25,7 @@ import com.ikuai.inetspeed.core.data.model.ToolRecord
         PrivacySettings::class,
     ],
     version = 1,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class INetSpeedDatabase : RoomDatabase() {
     abstract fun testMeasurementDao(): TestMeasurementDao
