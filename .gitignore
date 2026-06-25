@@ -22,3 +22,12 @@ local.properties
 *~
 /tools/test-outputs/
 /tools/iperf3-windows/
+
+# Tool artifacts
+.codegraph/
+.jdk/
+.omo/
+.walicode/
+docsmd/
+.team/
+.playwright-mcp/
