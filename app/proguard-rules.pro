@@ -37,3 +37,11 @@
     public static int d(...);
     public static int v(...);
 }
+
+# Keep errorprone annotations (required by Tink/Security-Crypto)
+-dontwarn com.google.errorprone.annotations.**
+-keep class com.google.errorprone.annotations.** { *; }
+
+# Keep Tink crypto library
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
