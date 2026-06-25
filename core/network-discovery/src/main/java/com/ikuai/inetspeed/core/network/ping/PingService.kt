@@ -26,6 +26,11 @@ class PingService @Inject constructor() {
      */
     suspend fun ping(host: String, count: Int = 3): PingResult = withContext(Dispatchers.IO) {
         try {
+            // 验证主机名格式
+            val hostRegex = Regex("^[a-zA-Z0-9.:-]+$")
+            if (!hostRegex.matches(host)) {
+                return@withContext PingResult(host, reachable = false, null, null, null, null)
+            }
             val cmd = arrayOf("ping", "-c", count.toString(), "-W", "3", host)
             val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
             val rawOutput = StringBuilder()
@@ -34,7 +39,9 @@ class PingService @Inject constructor() {
                     process.inputStream.bufferedReader().forEachLine { line ->
                         rawOutput.appendLine(line)
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.w("PingService", "Error reading ping output", e)
+                }
             }
             reader.start()
 

@@ -26,16 +26,18 @@ object Iperf3OutputParser {
         // 先尝试 UDP 格式（更长，包含 jitter/loss）
         val udpMatch = UDP_INTERVAL_PATTERN.find(line)
         if (udpMatch != null) {
+            val streamId = udpMatch.groupValues[1].toIntOrNull() ?: return null
+            val secondIndex = udpMatch.groupValues[2].toDoubleOrNull()?.toInt() ?: return null
+            val throughput = udpMatch.groupValues[6].toDoubleOrNull() ?: return null
+            val jitter = udpMatch.groupValues[8].toDoubleOrNull()
+            val packetLoss = udpMatch.groupValues[11].toDoubleOrNull()
             return SpeedInterval(
-                streamId = udpMatch.groupValues[1].toInt(),
-                secondIndex = udpMatch.groupValues[2].toDouble().toInt(),
-                bitsPerSecond = toBitsPerSecond(
-                    udpMatch.groupValues[6].toDouble(),
-                    udpMatch.groupValues[7]
-                ),
+                streamId = streamId,
+                secondIndex = secondIndex,
+                bitsPerSecond = toBitsPerSecond(throughput, udpMatch.groupValues[7]),
                 retransmits = null,
-                jitterMs = udpMatch.groupValues[8].toDouble(),
-                packetLossPercent = udpMatch.groupValues[11].toDouble(),
+                jitterMs = jitter,
+                packetLossPercent = packetLoss,
                 rawLine = line,
             )
         }
@@ -43,10 +45,13 @@ object Iperf3OutputParser {
         // 尝试 TCP 格式
         val tcpMatch = TCP_INTERVAL_PATTERN.find(line)
         if (tcpMatch != null) {
-            val bps = toBitsPerSecond(tcpMatch.groupValues[6].toDouble(), tcpMatch.groupValues[7])
+            val streamId = tcpMatch.groupValues[1].toIntOrNull() ?: return null
+            val secondIndex = tcpMatch.groupValues[2].toDoubleOrNull()?.toInt() ?: return null
+            val throughput = tcpMatch.groupValues[6].toDoubleOrNull() ?: return null
+            val bps = toBitsPerSecond(throughput, tcpMatch.groupValues[7])
             return SpeedInterval(
-                streamId = tcpMatch.groupValues[1].toInt(),
-                secondIndex = tcpMatch.groupValues[2].toDouble().toInt(),
+                streamId = streamId,
+                secondIndex = secondIndex,
                 bitsPerSecond = bps,
                 retransmits = tcpMatch.groupValues[8].toIntOrNull(),
                 jitterMs = null,

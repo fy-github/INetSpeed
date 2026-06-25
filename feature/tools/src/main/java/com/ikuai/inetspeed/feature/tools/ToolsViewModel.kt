@@ -65,7 +65,7 @@ class ToolsViewModel @Inject constructor(
             }
             _isPinging.value = false
 
-            // 淇濆瓨缁撴灉
+            // 保存结果
             savePingResult(target, results)
         }
     }
@@ -109,7 +109,7 @@ class ToolsViewModel @Inject constructor(
             }
             _isTracing.value = false
 
-            // 淇濆瓨缁撴灉
+            // 保存结果
             saveTracerouteResult(target, hops)
         }
     }
@@ -122,6 +122,7 @@ class ToolsViewModel @Inject constructor(
 
     private fun savePingResult(target: String, results: List<PingService.PingResult>) {
         viewModelScope.launch {
+            if (results.isEmpty()) return@launch
             val reachable = results.filter { it.reachable }
             val avgLatency = reachable.mapNotNull { it.avgLatencyMs }.average()
             val loss = ((results.size - reachable.size) * 100.0) / results.size

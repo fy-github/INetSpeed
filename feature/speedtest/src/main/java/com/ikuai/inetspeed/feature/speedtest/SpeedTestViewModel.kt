@@ -19,6 +19,7 @@ import com.ikuai.inetspeed.core.network.ping.TcpPingService
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestConfig
 import com.ikuai.inetspeed.feature.speedtest.state.SpeedTestState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SpeedTestViewModel @Inject constructor(
+    @ApplicationContext private val context: android.content.Context,
     private val iperf3Runner: Iperf3Runner,
     private val testRepository: TestRepository,
     private val serverRepository: ServerRepository,
@@ -108,6 +110,11 @@ class SpeedTestViewModel @Inject constructor(
         val testId = UUID.randomUUID().toString()
         currentTestId = testId
         _state.value = SpeedTestState.Preparing
+
+        // 启动前台服务
+        com.ikuai.inetspeed.core.service.SpeedTestForegroundService.start(
+            context, address, _config.value.protocol.name
+        )
 
         currentJob = viewModelScope.launch {
             android.util.Log.d("SpeedTestVM", "startTest launched, state=Preparing")
@@ -198,6 +205,7 @@ class SpeedTestViewModel @Inject constructor(
                             jitterMs = event.result.jitterMs,
                             packetLossPercent = event.result.packetLossPercent,
                         )
+                        com.ikuai.inetspeed.core.service.SpeedTestForegroundService.stop(context)
                     }
 
                     is IperfEvent.Failed -> {
@@ -208,6 +216,7 @@ class SpeedTestViewModel @Inject constructor(
                             message = errorMsg,
                         )
                         android.util.Log.d("SpeedTestVM", "State set to Failed: ${_state.value}")
+                        com.ikuai.inetspeed.core.service.SpeedTestForegroundService.stop(context)
                     }
                 }
             }
@@ -228,14 +237,25 @@ class SpeedTestViewModel @Inject constructor(
 
         currentJob = viewModelScope.launch {
             val lines = mutableListOf<String>()
+            val buffer = StringBuilder(_cliOutput.value)
+            val maxBufferSize = 100 * 1024 // 100KB 限制
             iperf3Runner.runCli(testId, trimmed).collect { line ->
                 lines.add(line)
-                _cliOutput.value = _cliOutput.value + line + "\n"
+                buffer.append(line).append('\n')
+                // 限制缓冲区大小，防止 OOM
+                if (buffer.length > maxBufferSize) {
+                    val excess = buffer.length - maxBufferSize
+                    buffer.delete(0, excess)
+                }
+                if (lines.size % 10 == 0) { // 每 10 行更新一次 StateFlow
+                    _cliOutput.value = buffer.toString()
+                }
                 _state.value = SpeedTestState.Running(
                     progressPercent = 0,
                     elapsedSeconds = lines.size,
                 )
             }
+            _cliOutput.value = buffer.toString() // 最终更新
             currentTestId = null
             currentJob = null
             _state.value = SpeedTestState.Completed(
@@ -264,6 +284,7 @@ class SpeedTestViewModel @Inject constructor(
                 currentTestId = null
                 currentJob?.cancel()
                 currentJob = null
+                com.ikuai.inetspeed.core.service.SpeedTestForegroundService.stop(context)
             }
         }
     }

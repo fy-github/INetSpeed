@@ -52,7 +52,9 @@ class MdnsDiscoveryService @Inject constructor(
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
                 try {
                     nsdManager.resolveService(serviceInfo, resolveListener)
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.w("MdnsDiscovery", "Failed to resolve service", e)
+                }
             }
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
@@ -70,7 +72,9 @@ class MdnsDiscoveryService @Inject constructor(
         awaitClose {
             try {
                 nsdManager.stopServiceDiscovery(discoveryListener)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("MdnsDiscovery", "Failed to stop discovery", e)
+            }
         }
     }
 }

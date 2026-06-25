@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,6 +52,14 @@ fun GaugeCanvas(
     val needleColor = MaterialTheme.colorScheme.onBackground
     val textColor = MaterialTheme.colorScheme.onBackground
     val tickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+
+    val labelPaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.GRAY
+            textSize = 10f * 2.75f // 约 10sp
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+    }
 
     Box(
         modifier = modifier.fillMaxWidth(),
@@ -151,14 +160,7 @@ fun GaugeCanvas(
                     val labelX = centerX + labelRadius * cos(labelAngle).toFloat()
                     val labelY = centerY + labelRadius * sin(labelAngle).toFloat()
 
-                    drawContext.canvas.nativeCanvas.apply {
-                        val paint = android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
-                            textSize = 10.sp.toPx()
-                            textAlign = android.graphics.Paint.Align.CENTER
-                        }
-                        drawText(label, labelX, labelY, paint)
-                    }
+                    drawContext.canvas.nativeCanvas.drawText(label, labelX, labelY, labelPaint)
                 }
             }
 

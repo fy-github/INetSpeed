@@ -48,7 +48,9 @@ class BinaryInstaller @Inject constructor(
 
             try {
                 Runtime.getRuntime().exec(arrayOf("chmod", "755", binaryFile.absolutePath)).waitFor()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("BinaryInstaller", "Failed to chmod binary", e)
+            }
 
             versionFile.writeText("""
                 {

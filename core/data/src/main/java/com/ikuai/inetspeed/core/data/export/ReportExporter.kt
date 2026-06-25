@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
-import android.os.Environment
 import com.ikuai.inetspeed.core.data.model.TestMeasurement
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -20,7 +19,7 @@ class ReportExporter @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     val exportDir: File
-        get() = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "INetSpeed").also { it.mkdirs() }
+        get() = File(context.filesDir, "reports").also { it.mkdirs() }
 
     /**
      * 导出 CSV
@@ -31,7 +30,7 @@ class ReportExporter @Inject constructor(
             writer.appendLine("时间,服务器,协议,方向,下行(Mbps),上行(Mbps),延迟(ms),抖动(ms),丢包(%)")
             measurements.forEach { m ->
                 writer.appendLine(
-                    "${formatDate(m.timestamp)},${m.serverName},${m.protocol},${m.direction}," +
+                    "${formatDate(m.timestamp)},${escapeCsv(m.serverName)},${escapeCsv(m.protocol)},${escapeCsv(m.direction)}," +
                     "${m.throughputMbps},${m.uploadMbps ?: ""},${m.latencyMs ?: ""}," +
                     "${m.jitterMs ?: ""},${m.packetLossPercent ?: ""}"
                 )
@@ -47,8 +46,8 @@ class ReportExporter @Inject constructor(
         val file = File(exportDir, "${sanitizeFilename(title)}.pdf")
         val document = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas: Canvas = page.canvas
+        var page = document.startPage(pageInfo)
+        var canvas: Canvas = page.canvas
 
         val titlePaint = Paint().apply {
             textSize = 18f
@@ -95,7 +94,8 @@ class ReportExporter @Inject constructor(
 
             if (y > 800f) {
                 document.finishPage(page)
-                val newPage = document.startPage(pageInfo)
+                page = document.startPage(pageInfo)
+                canvas = page.canvas
                 y = 40f
             }
         }
@@ -113,5 +113,17 @@ class ReportExporter @Inject constructor(
 
     private fun sanitizeFilename(name: String): String {
         return name.replace(Regex("[^a-zA-Z0-9\\u4e00-\\u9fa5_-]"), "_").take(50)
+    }
+
+    private fun escapeCsv(value: String): String {
+        // 防止 CSV 注入：如果值以危险字符开头，添加单引号前缀
+        val dangerous = setOf('=', '+', '-', '@', '\t', '\r', '\n')
+        return if (value.isNotEmpty() && value[0] in dangerous) {
+            "'" + value.replace("\"", "\"\"") + "'"
+        } else if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+            "\"${value.replace("\"", "\"\"")}\""
+        } else {
+            value
+        }
     }
 }

@@ -28,6 +28,7 @@ import com.ikuai.inetspeed.feature.history.HistoryScreen
 import com.ikuai.inetspeed.feature.report.ReportScreen
 import com.ikuai.inetspeed.feature.servers.ServerSelectionScreen
 import com.ikuai.inetspeed.feature.settings.SettingsScreen
+import com.ikuai.inetspeed.feature.settings.PrivacyScreen
 import com.ikuai.inetspeed.feature.speedtest.SpeedTestScreen
 import com.ikuai.inetspeed.feature.tools.ToolsScreen
 
@@ -94,6 +95,7 @@ fun INetSpeedApp() {
                         onNavigateToServers = { navController.navigate("servers") },
                         onNavigateToLicenses = { },
                         onNavigateToAbout = { },
+                        onNavigateToPrivacy = { navController.navigate("privacy") },
                     )
                 }
                 composable("servers") {
@@ -101,6 +103,9 @@ fun INetSpeedApp() {
                         onServerSelected = { navController.popBackStack() },
                         onNavigateToAdd = { },
                     )
+                }
+                composable("privacy") {
+                    PrivacyScreen(onBack = { navController.popBackStack() })
                 }
             }
         }

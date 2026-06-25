@@ -102,13 +102,13 @@ fun ReportScreen(
                     CockpitMetricTile("RTT", selectedMeasurements.mapNotNull { it.latencyMs }.average().takeIf { !it.isNaN() }?.let { "${it.toInt()}ms" } ?: "--", Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
                 }
                 CockpitSegmentedControl(
-                    options = listOf("PDF", "CSV", "Excel", "PNG"),
+                    options = listOf("PDF", "CSV"),
                     selectedIndex = selectedFormat,
                     onSelected = { selectedFormat = it },
                 )
                 CockpitActionButton(
                     text = "导出报告",
-                    onClick = { if (selectedFormat == 1 || selectedFormat == 2) viewModel.exportCsv() else viewModel.exportPdf() },
+                    onClick = { if (selectedFormat == 1) viewModel.exportCsv() else viewModel.exportPdf() },
                     enabled = !exporting,
                 )
                 ExportStateBlock(exportState)

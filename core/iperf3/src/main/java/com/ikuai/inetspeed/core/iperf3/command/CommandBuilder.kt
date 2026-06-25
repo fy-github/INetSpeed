@@ -98,6 +98,29 @@ object CommandBuilder {
         if (args.isEmpty()) {
             throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "command", "reason" to "missing arguments"))
         }
+        // 验证参数安全性：只允许安全的 iperf3 参数
+        val safeArgs = setOf(
+            "-c", "--client", "-p", "--port", "-t", "--time", "-i", "--interval",
+            "-P", "--parallel", "-R", "--reverse", "-u", "--udp", "--sctp",
+            "-b", "--bandwidth", "-l", "--len", "-w", "--window", "-6",
+            "--json", "--json-stream", "-J", "--logfile", "-v", "--verbose",
+            "-V", "--version", "-h", "--help"
+        )
+        val dangerousArgs = setOf(
+            "--server", "-s", "--daemon", "--bind", "--rsa-public-key-path",
+            "--username", "--client-password"
+        )
+        for (arg in args) {
+            if (arg.startsWith("-")) {
+                val flag = arg.split("=").first()
+                if (flag in dangerousArgs) {
+                    throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "command", "reason" to "dangerous flag: $flag"))
+                }
+                if (flag !in safeArgs) {
+                    throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "command", "reason" to "unknown flag: $flag"))
+                }
+            }
+        }
         return args
     }
 
@@ -107,6 +130,11 @@ object CommandBuilder {
     private fun validate(request: IperfRequest) {
         if (request.host.isBlank()) {
             throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "host", "reason" to "empty"))
+        }
+        // 验证主机名格式（允许域名、IPv4、IPv6）
+        val hostRegex = Regex("^[a-zA-Z0-9.:-]+$")
+        if (!hostRegex.matches(request.host)) {
+            throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "host", "reason" to "invalid format"))
         }
         if (request.port !in 1..65535) {
             throw INetSpeedException(ErrorCode.PARAM_INVALID, mapOf("field" to "port", "value" to request.port.toString()))

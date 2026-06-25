@@ -73,7 +73,7 @@ class SyncEngine @Inject constructor(
 
         val response = syncApi.push(request)
         if (response.isSuccessful) {
-            val body = response.body()!!
+            val body = response.body() ?: throw Exception("Push response body is null")
             unsynced.forEach { m ->
                 measurementDao.update(m.copy(isSynced = true))
             }
@@ -93,7 +93,7 @@ class SyncEngine @Inject constructor(
 
         val response = syncApi.pull(request)
         if (response.isSuccessful) {
-            val body = response.body()!!
+            val body = response.body() ?: throw Exception("Pull response body is null")
             body.measurements.forEach { m ->
                 val existing = measurementDao.getById(m.id)
                 if (existing == null) {

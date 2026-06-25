@@ -10,6 +10,7 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_test_measurements_serverId` ON `test_measurements` (`serverId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_test_measurements_protocol` ON `test_measurements` (`protocol`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_test_measurements_isSynced` ON `test_measurements` (`isSynced`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_test_measurements_serverId_protocol_timestamp` ON `test_measurements` (`serverId`, `protocol`, `timestamp`)")
         // Server indices
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_servers_address` ON `servers` (`address`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_servers_isBuiltIn` ON `servers` (`isBuiltIn`)")

@@ -41,15 +41,6 @@ class ProcessRunner @Inject constructor(
             return@flow
         }
 
-        // UDP 可达性预检
-        if (request.protocol == com.ikuai.inetspeed.core.data.model.Protocol.UDP) {
-            val isReachable = checkUdpReachability(request.host, request.port)
-            if (!isReachable) {
-                emit(IperfEvent.Failed(INetSpeedException(ErrorCode.SERVER_UNREACHABLE, mapOf("error" to "UDP 连接超时，请检查服务器是否支持 UDP 或网络是否阻止 UDP 流量"))))
-                return@flow
-            }
-        }
-
         // 构建命令
         val args = try {
             CommandBuilder.build(request)
@@ -59,7 +50,7 @@ class ProcessRunner @Inject constructor(
         }
 
         val cmd = listOf(binaryInstaller.getBinaryPath()) + args
-        val rawLines = mutableListOf<String>()
+        val rawLines = ArrayDeque<String>(200) // 限制缓冲区大小为 200 行
         var finalThroughputMbps = 0.0
         var intervalsParsed = 0
 
@@ -91,7 +82,8 @@ class ProcessRunner @Inject constructor(
 
             while (reader.readLine().also { line = it } != null) {
                 val currentLine = line ?: continue
-                rawLines.add(currentLine)
+                if (rawLines.size >= 200) rawLines.removeFirst()
+                rawLines.addLast(currentLine)
 
                 // 解析输出：优先尝试 JSON（--json-stream 模式），回退到文本
                 if (currentLine.trimStart().startsWith("{")) {
@@ -307,8 +299,10 @@ class ProcessRunner @Inject constructor(
                 if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
                     process.destroyForcibly()
                 }
-            } catch (_: Exception) {
-                try { process.destroyForcibly() } catch (_: Exception) {}
+            } catch (e: Exception) {
+                try { process.destroyForcibly() } catch (e2: Exception) {
+                    android.util.Log.w("ProcessRunner", "Failed to force destroy process", e2)
+                }
             }
         }
     }
@@ -384,30 +378,6 @@ class ProcessRunner @Inject constructor(
             lower.contains("error") -> ErrorCode.UNKNOWN
             exitCode != 0 -> ErrorCode.UNKNOWN
             else -> ErrorCode.UNKNOWN
-        }
-    }
-
-    internal fun checkUdpReachability(host: String, port: Int, timeoutMs: Int = 2000): Boolean {
-        return try {
-            val socket = DatagramSocket()
-            socket.soTimeout = timeoutMs
-            val address = InetAddress.getByName(host)
-            val data = ByteArray(1)
-            val packet = DatagramPacket(data, data.size, address, port)
-            socket.send(packet)
-
-            val receiveData = ByteArray(1024)
-            val receivePacket = DatagramPacket(receiveData, receiveData.size)
-            try {
-                socket.receive(receivePacket)
-                true
-            } catch (e: java.net.SocketTimeoutException) {
-                false
-            } finally {
-                socket.close()
-            }
-        } catch (e: Exception) {
-            false
         }
     }
 

@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
         Index("serverId"),
         Index("protocol"),
         Index("isSynced"),
+        Index(value = ["serverId", "protocol", "timestamp"]),
     ],
 )
 data class TestMeasurement(

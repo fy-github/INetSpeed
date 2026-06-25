@@ -48,6 +48,7 @@ fun SettingsScreen(
     onNavigateToServers: () -> Unit,
     onNavigateToLicenses: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToPrivacy: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -91,6 +92,12 @@ fun SettingsScreen(
                     title = "开源许可",
                     subtitle = "第三方组件许可证",
                     onClick = onNavigateToLicenses,
+                )
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "隐私政策",
+                    subtitle = "数据收集与使用说明",
+                    onClick = onNavigateToPrivacy,
                 )
                 SettingsItem(
                     icon = Icons.Default.Info,

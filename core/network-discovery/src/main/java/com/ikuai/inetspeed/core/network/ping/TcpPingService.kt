@@ -28,7 +28,9 @@ class TcpPingService @Inject constructor() {
             } catch (_: Exception) {
                 TcpPingResult(host, port, reachable = false, latencyMs = null)
             } finally {
-                try { socket.close() } catch (_: Exception) {}
+                try { socket.close() } catch (e: Exception) {
+                    android.util.Log.w("TcpPingService", "Error closing socket", e)
+                }
             }
         }
 }

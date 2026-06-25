@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "2ccd700444f15c700b8d6250e0ca60ba",
+    "identityHash": "0a4a099c4b0236b9b37ac1227c7ac755",
     "entities": [
       {
         "tableName": "test_measurements",
@@ -183,6 +183,17 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_test_measurements_isSynced` ON `${TABLE_NAME}` (`isSynced`)"
+          },
+          {
+            "name": "index_test_measurements_serverId_protocol_timestamp",
+            "unique": false,
+            "columnNames": [
+              "serverId",
+              "protocol",
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_test_measurements_serverId_protocol_timestamp` ON `${TABLE_NAME}` (`serverId`, `protocol`, `timestamp`)"
           }
         ],
         "foreignKeys": []
@@ -631,7 +642,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2ccd700444f15c700b8d6250e0ca60ba')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0a4a099c4b0236b9b37ac1227c7ac755')"
     ]
   }
 }

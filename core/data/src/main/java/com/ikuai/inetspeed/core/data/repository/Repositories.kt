@@ -76,6 +76,15 @@ class ServerRepository @Inject constructor(
     }
 
     suspend fun initBuiltInServers() {
-        // 不插入默认服务器，由用户自行添加
+        val existing = getBuiltIn()
+        if (existing.isNotEmpty()) return
+
+        val builtInServers = listOf(
+            Server(name = "iperf.he.net", address = "iperf.he.net", port = 5201, isBuiltIn = true, region = "US"),
+            Server(name = "bouygues.iperf.fr", address = "bouygues.iperf.fr", port = 5201, isBuiltIn = true, region = "FR"),
+            Server(name = "ping.online.net", address = "ping.online.net", port = 5201, isBuiltIn = true, region = "FR"),
+            Server(name = "speedtest.serverius.net", address = "speedtest.serverius.net", port = 5201, isBuiltIn = true, region = "NL"),
+        )
+        builtInServers.forEach { serverDao.insert(it) }
     }
 }

@@ -34,6 +34,7 @@ dependencies {
     implementation(project(":core:iperf3"))
     implementation(project(":core:privacy"))
     implementation(project(":core:network-discovery"))
+    implementation(project(":core:service"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

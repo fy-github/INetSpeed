@@ -32,6 +32,7 @@ class RawOutputManager @Inject constructor(
      */
     fun read(path: String): String? {
         val file = File(path)
+        if (!isWithinOutputDir(file)) return null
         return if (file.exists() && file.canRead()) {
             file.readText(Charsets.UTF_8)
         } else {
@@ -44,6 +45,7 @@ class RawOutputManager @Inject constructor(
      */
     fun delete(path: String): Boolean {
         val file = File(path)
+        if (!isWithinOutputDir(file)) return false
         return if (file.exists()) file.delete() else true
     }
 
@@ -60,6 +62,11 @@ class RawOutputManager @Inject constructor(
      */
     fun getSize(path: String): Long {
         val file = File(path)
+        if (!isWithinOutputDir(file)) return 0
         return if (file.exists()) file.length() else 0
+    }
+
+    private fun isWithinOutputDir(file: File): Boolean {
+        return file.canonicalPath.startsWith(outputDir.canonicalPath)
     }
 }

@@ -154,18 +154,4 @@ class ProcessRunnerTest {
             runner.classifyError("UDP 不可达，请检查服务器是否支持 UDP", 1),
         )
     }
-
-    @Test
-    fun checkUdpReachability_unreachableHost_returnsFalse() {
-        // 测试一个不可达的主机
-        val result = runner.checkUdpReachability("192.0.2.1", 5201, 2000)
-        assertFalse(result)
-    }
-
-    @Test
-    fun checkUdpReachability_invalidPort_returnsFalse() {
-        // 测试一个无效的端口
-        val result = runner.checkUdpReachability("127.0.0.1", 99999, 2000)
-        assertFalse(result)
-    }
 }

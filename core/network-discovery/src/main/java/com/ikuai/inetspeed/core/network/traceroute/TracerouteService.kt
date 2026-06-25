@@ -22,6 +22,12 @@ class TracerouteService @Inject constructor() {
      * Android 没有原生 traceroute，使用 ping -t TTL 逐跳探测
      */
     fun trace(host: String, maxHops: Int = 30): Flow<TracerouteHop> = flow {
+        // 验证主机名格式
+        val hostRegex = Regex("^[a-zA-Z0-9.:-]+$")
+        if (!hostRegex.matches(host)) {
+            emit(TracerouteHop(1, "*", null, false))
+            return@flow
+        }
         for (ttl in 1..maxHops) {
             val hop = traceHop(host, ttl)
             emit(hop)

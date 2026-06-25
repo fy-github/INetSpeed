@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -29,6 +30,20 @@ fun TrendChart(
     val upColor = MaterialTheme.colorScheme.secondary
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
     val axisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+
+    val labelPaint = remember(textColor) {
+        android.graphics.Paint().apply {
+            color = textColor.toArgb()
+            textSize = 9f * 2.75f // 约 9sp
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+    }
+    val valuePaint = remember(textColor, upColor) {
+        android.graphics.Paint().apply {
+            textSize = 9f * 2.75f
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+    }
 
     Canvas(
         modifier = modifier
@@ -73,24 +88,17 @@ fun TrendChart(
                 bar.label,
                 x + barWidth / 2,
                 size.height - 2.dp.toPx(),
-                android.graphics.Paint().apply {
-                    color = textColor.toArgb()
-                    textSize = 9.sp.toPx()
-                    textAlign = android.graphics.Paint.Align.CENTER
-                },
+                labelPaint,
             )
 
             // 值
             if (barHeight > 20.dp.toPx()) {
+                valuePaint.color = if (bar.value >= maxValue * 0.8) upColor.toArgb() else textColor.toArgb()
                 drawContext.canvas.nativeCanvas.drawText(
                     String.format("%.0f", bar.value),
                     x + barWidth / 2,
                     y - 4.dp.toPx(),
-                    android.graphics.Paint().apply {
-                        color = if (bar.value >= maxValue * 0.8) upColor.toArgb() else textColor.toArgb()
-                        textSize = 9.sp.toPx()
-                        textAlign = android.graphics.Paint.Align.CENTER
-                    },
+                    valuePaint,
                 )
             }
         }

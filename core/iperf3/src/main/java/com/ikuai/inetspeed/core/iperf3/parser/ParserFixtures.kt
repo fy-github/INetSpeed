@@ -78,6 +78,7 @@ object ParserFixtures {
 
         // 验证第二个 interval（有丢包）
         val second = intervals[1]
+        if (second.packetLossPercent == null) return false
         if (second.packetLossPercent!! < 0.1 || second.packetLossPercent!! > 0.3) return false
 
         return true

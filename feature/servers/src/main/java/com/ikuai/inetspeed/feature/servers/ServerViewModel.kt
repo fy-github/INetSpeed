@@ -47,9 +47,10 @@ class ServerViewModel @Inject constructor(
 
             if (best != null) {
                 val server = builtIn.firstOrNull { it.address == best.host }
-                if (server != null) {
-                    serverRepository.updateLatency(server.id, best.avgLatencyMs!!)
-                    _recommendedServer.value = server.copy(lastLatencyMs = best.avgLatencyMs)
+                val latency = best.avgLatencyMs
+                if (server != null && latency != null) {
+                    serverRepository.updateLatency(server.id, latency)
+                    _recommendedServer.value = server.copy(lastLatencyMs = latency)
                 }
             }
 
