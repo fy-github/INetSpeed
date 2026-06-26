@@ -103,7 +103,7 @@ object CommandBuilder {
             "-c", "--client", "-p", "--port", "-t", "--time", "-i", "--interval",
             "-P", "--parallel", "-R", "--reverse", "-u", "--udp", "--sctp",
             "-b", "--bandwidth", "-l", "--len", "-w", "--window", "-6",
-            "--json", "--json-stream", "-J", "--logfile", "-v", "--verbose",
+            "--json", "--json-stream", "-J", "-v", "--verbose",
             "-V", "--version", "-h", "--help"
         )
         val dangerousArgs = setOf(

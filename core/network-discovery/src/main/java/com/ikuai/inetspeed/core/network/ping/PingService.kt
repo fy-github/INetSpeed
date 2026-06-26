@@ -52,7 +52,8 @@ class PingService @Inject constructor() {
             reader.join(2000)
 
             parsePingOutput(host, rawOutput.toString())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.w("PingService", "Ping failed for $host", e)
             PingResult(host, reachable = false, null, null, null, null)
         }
     }

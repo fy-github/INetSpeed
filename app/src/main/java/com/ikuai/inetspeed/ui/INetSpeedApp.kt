@@ -25,10 +25,13 @@ import com.ikuai.inetspeed.core.designsystem.components.TopLevelDestination
 import com.ikuai.inetspeed.core.designsystem.theme.INetSpeedTheme
 import com.ikuai.inetspeed.core.designsystem.theme.ThemeMode
 import com.ikuai.inetspeed.feature.history.HistoryScreen
+import com.ikuai.inetspeed.feature.history.HistoryDetailScreen
 import com.ikuai.inetspeed.feature.report.ReportScreen
 import com.ikuai.inetspeed.feature.servers.ServerSelectionScreen
 import com.ikuai.inetspeed.feature.settings.SettingsScreen
 import com.ikuai.inetspeed.feature.settings.PrivacyScreen
+import com.ikuai.inetspeed.feature.settings.AboutScreen
+import com.ikuai.inetspeed.feature.settings.LicensesScreen
 import com.ikuai.inetspeed.feature.speedtest.SpeedTestScreen
 import com.ikuai.inetspeed.feature.tools.ToolsScreen
 
@@ -85,7 +88,7 @@ fun INetSpeedApp() {
                     ToolsScreen()
                 }
                 composable(TopLevelDestination.HISTORY.route) {
-                    HistoryScreen(onNavigateToDetail = { })
+                    HistoryScreen(onNavigateToDetail = { id -> navController.navigate("history/$id") })
                 }
                 composable(TopLevelDestination.REPORT.route) {
                     ReportScreen()
@@ -93,8 +96,8 @@ fun INetSpeedApp() {
                 composable(TopLevelDestination.SETTINGS.route) {
                     SettingsScreen(
                         onNavigateToServers = { navController.navigate("servers") },
-                        onNavigateToLicenses = { },
-                        onNavigateToAbout = { },
+                        onNavigateToLicenses = { navController.navigate("licenses") },
+                        onNavigateToAbout = { navController.navigate("about") },
                         onNavigateToPrivacy = { navController.navigate("privacy") },
                     )
                 }
@@ -106,6 +109,19 @@ fun INetSpeedApp() {
                 }
                 composable("privacy") {
                     PrivacyScreen(onBack = { navController.popBackStack() })
+                }
+                composable("about") {
+                    AboutScreen(onBack = { navController.popBackStack() })
+                }
+                composable("licenses") {
+                    LicensesScreen(onBack = { navController.popBackStack() })
+                }
+                composable("history/{measurementId}") { backStackEntry ->
+                    val measurementId = backStackEntry.arguments?.getString("measurementId")?.toLongOrNull() ?: 0L
+                    HistoryDetailScreen(
+                        measurementId = measurementId,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
         }

@@ -63,7 +63,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun getAppVersion(): String {
-        return "1.0.0"
+        return "1.0.1"
     }
 
     fun getDeviceInfo(): String {

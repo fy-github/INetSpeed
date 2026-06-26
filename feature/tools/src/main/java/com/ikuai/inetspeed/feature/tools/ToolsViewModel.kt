@@ -32,6 +32,7 @@ class ToolsViewModel @Inject constructor(
     val pingResults: StateFlow<List<PingService.PingResult>> = _pingResults.asStateFlow()
     private val _isPinging = MutableStateFlow(false)
     val isPinging: StateFlow<Boolean> = _isPinging.asStateFlow()
+    @Volatile
     private var pingJob: Job? = null
 
     // TcpPing state
@@ -39,6 +40,7 @@ class ToolsViewModel @Inject constructor(
     val tcpPingResults: StateFlow<List<TcpPingService.TcpPingResult>> = _tcpPingResults.asStateFlow()
     private val _isTcpPinging = MutableStateFlow(false)
     val isTcpPinging: StateFlow<Boolean> = _isTcpPinging.asStateFlow()
+    @Volatile
     private var tcpPingJob: Job? = null
 
     // Traceroute state
@@ -46,6 +48,8 @@ class ToolsViewModel @Inject constructor(
     val tracerouteHops: StateFlow<List<TracerouteService.TracerouteHop>> = _tracerouteHops.asStateFlow()
     private val _isTracing = MutableStateFlow(false)
     val isTracing: StateFlow<Boolean> = _isTracing.asStateFlow()
+    @Volatile
+    private var tracerouteJob: Job? = null
 
     // Network info state
     private val _networkInfo = MutableStateFlow<NetworkInfoService.NetworkInfo?>(null)
@@ -101,7 +105,7 @@ class ToolsViewModel @Inject constructor(
         _isTracing.value = true
         _tracerouteHops.value = emptyList()
 
-        viewModelScope.launch {
+        tracerouteJob = viewModelScope.launch {
             val hops = mutableListOf<TracerouteService.TracerouteHop>()
             tracerouteService.trace(target).collect { hop ->
                 hops.add(hop)
@@ -112,6 +116,11 @@ class ToolsViewModel @Inject constructor(
             // 保存结果
             saveTracerouteResult(target, hops)
         }
+    }
+
+    fun stopTraceroute() {
+        tracerouteJob?.cancel()
+        _isTracing.value = false
     }
 
     fun loadNetworkInfo() {

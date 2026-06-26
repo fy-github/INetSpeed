@@ -34,7 +34,7 @@ class HistoryViewModel @Inject constructor(
     private val _filterServerId = MutableStateFlow<Long?>(null)
     val filterServerId: StateFlow<Long?> = _filterServerId.asStateFlow()
 
-    private val allMeasurements = testRepository.getAllFlow()
+    val allMeasurements = testRepository.getAllFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredMeasurements: StateFlow<List<TestMeasurement>> = combine(

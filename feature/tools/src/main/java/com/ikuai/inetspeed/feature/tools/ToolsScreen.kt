@@ -129,6 +129,7 @@ fun ToolsScreen(
                     hops = hops,
                     isTracing = isTracing,
                     onStart = { viewModel.startTraceroute(target) },
+                    onStop = { viewModel.stopTraceroute() },
                 )
                 3 -> NetworkInfoPanel(networkInfo = networkInfo)
                 else -> ProbeWaveformMode(
@@ -187,11 +188,13 @@ private fun TraceRouteMode(
     hops: List<TracerouteHop>,
     isTracing: Boolean,
     onStart: () -> Unit,
+    onStop: () -> Unit,
 ) {
     CockpitActionButton(
-        text = if (isTracing) "路径跟踪中" else "开始诊断",
-        onClick = onStart,
-        enabled = target.isNotBlank() && !isTracing,
+        text = if (isTracing) "停止诊断" else "开始诊断",
+        onClick = { if (isTracing) onStop() else onStart() },
+        enabled = target.isNotBlank(),
+        destructive = isTracing,
     )
     TraceRoutePathPanel(hops = hops, target = target, isTracing = isTracing)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

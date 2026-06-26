@@ -74,21 +74,24 @@ fun ReportScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        val avgThroughput = selectedMeasurements.map { it.throughputMbps }.average().takeIf { !it.isNaN() } ?: 0.0
+                        val avgLatency = selectedMeasurements.mapNotNull { it.latencyMs }.average().takeIf { !it.isNaN() } ?: 0.0
+                        val score = calculateNetworkScore(avgThroughput, avgLatency)
                         Text(
-                            text = "92",
+                            text = score.toString(),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.secondary,
                             fontWeight = FontWeight.Black,
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "网络质量优秀",
+                                text = getQualityLabel(score),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Black,
                                 maxLines = 1,
                             )
                             Text(
-                                text = "IPERF.IKUAI.LOCAL · TCP 下载",
+                                text = selectedMeasurements.firstOrNull()?.let { "${it.serverName} · ${it.protocol.uppercase()}" } ?: "暂无数据",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -210,3 +213,24 @@ private fun formatDate(timestamp: Long): String {
 }
 
 private fun formatNumber(value: Double): String = String.format(Locale.US, "%.0f", value)
+
+private fun calculateNetworkScore(avgThroughput: Double, avgLatency: Double): Int {
+    if (avgThroughput <= 0) return 0
+    val throughputScore = (avgThroughput / 100.0 * 60).coerceAtMost(60.0)
+    val latencyScore = when {
+        avgLatency <= 0 -> 40.0
+        avgLatency <= 10 -> 40.0
+        avgLatency <= 50 -> 30.0
+        avgLatency <= 100 -> 20.0
+        else -> 10.0
+    }
+    return (throughputScore + latencyScore).toInt().coerceIn(0, 100)
+}
+
+private fun getQualityLabel(score: Int): String = when {
+    score >= 90 -> "网络质量优秀"
+    score >= 70 -> "网络质量良好"
+    score >= 50 -> "网络质量一般"
+    score >= 30 -> "网络质量较差"
+    else -> "网络质量极差"
+}

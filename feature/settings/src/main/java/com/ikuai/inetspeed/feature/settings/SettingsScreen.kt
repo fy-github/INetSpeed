@@ -106,7 +106,6 @@ fun SettingsScreen(
                     onClick = onNavigateToAbout,
                 )
             }
-            CockpitActionButton(text = "保存配置", onClick = { viewModel.loadIperfVersion() })
         }
     }
 

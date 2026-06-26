@@ -25,7 +25,8 @@ class TcpPingService @Inject constructor() {
                 socket.connect(InetSocketAddress(host, port), timeoutMs)
                 val latency = (System.currentTimeMillis() - start).toDouble()
                 TcpPingResult(host, port, reachable = true, latencyMs = latency)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.w("TcpPingService", "TcpPing failed for $host:$port", e)
                 TcpPingResult(host, port, reachable = false, latencyMs = null)
             } finally {
                 try { socket.close() } catch (e: Exception) {

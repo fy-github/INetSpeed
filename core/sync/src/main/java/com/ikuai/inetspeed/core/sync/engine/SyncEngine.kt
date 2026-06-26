@@ -24,6 +24,7 @@ class SyncEngine @Inject constructor(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
+    @Volatile
     private var lastSyncAt: Long = 0
 
     suspend fun sync() {

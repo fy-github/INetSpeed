@@ -62,7 +62,9 @@ class SpeedTestViewModel @Inject constructor(
     val recentServers: StateFlow<List<Server>> = serverRepository.getAllFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    @Volatile
     private var currentJob: Job? = null
+    @Volatile
     private var currentTestId: String? = null
 
     init {
@@ -237,10 +239,15 @@ class SpeedTestViewModel @Inject constructor(
 
         currentJob = viewModelScope.launch {
             val lines = mutableListOf<String>()
+            val maxLines = 5000 // 限制行数，防止内存溢出
             val buffer = StringBuilder(_cliOutput.value)
             val maxBufferSize = 100 * 1024 // 100KB 限制
             iperf3Runner.runCli(testId, trimmed).collect { line ->
                 lines.add(line)
+                // 限制行数
+                if (lines.size > maxLines) {
+                    lines.removeAt(0)
+                }
                 buffer.append(line).append('\n')
                 // 限制缓冲区大小，防止 OOM
                 if (buffer.length > maxBufferSize) {
